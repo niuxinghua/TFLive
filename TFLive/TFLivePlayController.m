@@ -12,6 +12,11 @@
 #import "avcodec.h"
 #import "avformat.h"
 
+
+typedef struct SDL_VoutOverlay_Opaque SDL_VoutOverlay_Opaque;
+typedef struct SDL_VoutOverlay SDL_VoutOverlay;
+typedef struct SDL_Class SDL_Class;
+
 typedef struct TFFrameDecoder{
     TFSDL_thread frameReadThread;
     AVCodecContext *codexCtx;
@@ -37,8 +42,13 @@ typedef struct TFPacketQueue{
     
 }TFPacketQueue;
 
-typedef struct TFFrameNode{
+typedef struct TFFrame{
     AVFrame *frame;
+    SDL_VoutOverlay *bitmap;
+}TFFrame;
+
+typedef struct TFFrameNode{
+    TFFrame *frame;
     struct TFFrameNode *pre;
 }TFFrameNode;
 
@@ -360,7 +370,7 @@ int videoFrameRead(void *data){
     AVFrame *frame = av_frame_alloc();
     int gotPicture = true;
     
-    while (finished) {
+    while (!finished) {
         AVPacket *pkt = packetQueueGet(&videoState->videoPktQueue,&finished);
         
         int retval = avcodec_decode_video2(codecCtx, frame, &gotPicture, pkt);
@@ -416,8 +426,10 @@ void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame){
         NSLog(@"alloc new node");
     }
     
+    
+    
     //using recycleFrameNodeLast, and move back it if there is stil recycle node.
-    frameQueue->recycleFrameNodeLast->frame = frame;
+    frameQueue->recycleFrameNodeLast->frame = TFFRameAlloc(frame);
     frameQueue->recycleCount --;
     if (frameQueue->recycleCount != 0) {
         frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
@@ -426,7 +438,7 @@ void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame){
     TFSDL_UnlockMutex(frameQueue->mutex);
 }
 
-AVFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
+TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
     
     TFSDL_LockMutex(frameQueue->mutex);
     
@@ -435,7 +447,7 @@ AVFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
         return NULL;
     }
     
-    AVFrame *firstframe = frameQueue->usedFrameNodeLast->frame;
+    TFFrame *firstframe = frameQueue->usedFrameNodeLast->frame;
     
     frameQueue->usedFrameNodeLast->frame = NULL;
     frameQueue->recycleCount ++;
@@ -450,8 +462,73 @@ AVFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
     return firstframe;
 }
 
-#pragma mark - display
+inline TFFrame *TFFRameAlloc(AVFrame *originalFrame){
+    TFFrame *compositeFrame = av_mallocz(sizeof(TFFrame));
+    compositeFrame->frame = originalFrame;
+    compositeFrame->bitmap = voutOverlayCreate(originalFrame);
+    
+    return compositeFrame;
+}
 
+inline SDL_VoutOverlay *voutOverlayCreate(AVFrame *originalFrame){
+    
+}
 
+#pragma mark - display frame
+
+struct SDL_Class {
+    const char *name;
+};
+
+struct SDL_VoutOverlay {
+    int w; /**< Read-only */
+    int h; /**< Read-only */
+    UInt32 format; /**< Read-only */
+    int planes; /**< Read-only */
+    UInt16 *pitches; /**< in bytes, Read-only */
+    UInt8 **pixels; /**< Read-write */
+    
+    int is_private;
+    
+    int sar_num;
+    int sar_den;
+    
+    SDL_Class               *opaque_class;
+    SDL_VoutOverlay_Opaque  *opaque;
+    
+    void    (*free_l)(SDL_VoutOverlay *overlay);
+    int     (*lock)(SDL_VoutOverlay *overlay);
+    int     (*unlock)(SDL_VoutOverlay *overlay);
+    void    (*unref)(SDL_VoutOverlay *overlay);
+    
+    int     (*func_fill_frame)(SDL_VoutOverlay *overlay, const AVFrame *frame);
+};
+
+struct SDL_VoutOverlay_Opaque {
+    TFSDL_mutex *mutex;
+    
+    AVFrame *managed_frame;
+    AVBufferRef *frame_buffer;
+    int planes;
+    
+    AVFrame *linked_frame;
+    
+    UInt16 pitches[AV_NUM_DATA_POINTERS];
+    UInt8 *pixels[AV_NUM_DATA_POINTERS];
+    
+    int no_neon_warned;
+    
+    struct SwsContext *img_convert_ctx;
+    int sws_flags;
+};
+
+void startDisplayFrames(TFVideoState *videoState){
+    
+    bool finished = false;
+    while (!finished) {
+        TFFrameNode *frame = frameQueueGet(&videoState->videoFrameQueue, &finished);
+    }
+    
+}
 
 @end
