@@ -20,6 +20,27 @@ typedef struct TFSDL_thread{
     int retval;
 }TFSDL_thread;
 
+
+
 TFSDL_thread *TFSDL_createThreadEx(TFSDL_thread *thread, int(*func)(void*), void* data, const char *name);
+
+
+//lock
+
+typedef struct TFSDL_mutex {
+    pthread_mutex_t id;
+} TFSDL_mutex;
+
+TFSDL_mutex *TFSDL_CreateMutex(void);
+
+void TFSDL_DestroyMutex(TFSDL_mutex *mutex);
+
+void TFSDL_DestroyMutexP(TFSDL_mutex **mutex);
+
+int TFSDL_LockMutex(TFSDL_mutex *mutex);
+
+int TFSDL_UnlockMutex(TFSDL_mutex *mutex);
+
+
 
 #endif /* TFThreadConvience_h */
