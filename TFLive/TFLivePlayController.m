@@ -353,6 +353,20 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
 
 #pragma mark - frame queue
 
+inline static TFFrame *TFFRameAlloc(AVFrame *originalFrame){
+    TFFrame *compositeFrame = av_mallocz(sizeof(TFFrame));
+    compositeFrame->frame = originalFrame;
+    compositeFrame->bitmap = voutOverlayCreate(originalFrame);
+    
+    return compositeFrame;
+}
+
+inline static SDL_VoutOverlay *voutOverlayCreate(AVFrame *originalFrame){
+    SDL_VoutOverlay *overlay = av_mallocz(sizeof(SDL_VoutOverlay));
+    
+    return overlay;
+}
+
 TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx){
     TFFrameDecoder *decoder = av_mallocz(sizeof(TFFrameDecoder));
     decoder->codexCtx = codecCtx;
@@ -460,18 +474,6 @@ TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
     TFSDL_UnlockMutex(frameQueue->mutex);
     
     return firstframe;
-}
-
-inline TFFrame *TFFRameAlloc(AVFrame *originalFrame){
-    TFFrame *compositeFrame = av_mallocz(sizeof(TFFrame));
-    compositeFrame->frame = originalFrame;
-    compositeFrame->bitmap = voutOverlayCreate(originalFrame);
-    
-    return compositeFrame;
-}
-
-inline SDL_VoutOverlay *voutOverlayCreate(AVFrame *originalFrame){
-    
 }
 
 #pragma mark - display frame
