@@ -14,13 +14,10 @@
 #include "avcodec.h"
 #include "avformat.h"
 #import <Foundation/Foundation.h>
+#include "TFDisplay.h"
 
 #define kMaxAllocPacketNodeCount       50
 #define kMaxAllocFrameNodeCount       50
-
-typedef struct SDL_VoutOverlay_Opaque SDL_VoutOverlay_Opaque;
-typedef struct SDL_VoutOverlay SDL_VoutOverlay;
-typedef struct SDL_Class SDL_Class;
 
 typedef struct TFFrameDecoder{
     TFSDL_thread frameReadThread;
@@ -54,7 +51,7 @@ typedef struct TFPacketQueue{
 
 typedef struct TFFrame{
     AVFrame *frame;
-    SDL_VoutOverlay *bitmap;
+    TFOverlay *bitmap;
 }TFFrame;
 
 typedef struct TFFrameNode{
@@ -107,6 +104,13 @@ typedef struct TFVideoState{
     
 }TFVideoState;
 
+typedef struct TFLivePlayer{
+    
+    TFVideoState *videoState;
+    TFFrameDisplayer *dispalyer;
+    
+}TFLivePlayer;
+
 
 /***** functions *****/
 
@@ -123,9 +127,8 @@ int videoFrameRead(void *data);
 
 TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx);
 
-inline static SDL_VoutOverlay *voutOverlayCreate(AVFrame *originalFrame);
 
-inline static TFFrame *TFFRameAlloc(AVFrame *originalFrame);
 
+int func_fill_frame(TFOverlay *overlay, const AVFrame *frame);
 
 #endif /* TFFFplayer_h */

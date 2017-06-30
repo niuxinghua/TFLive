@@ -27,7 +27,7 @@
     _livePlayer = [[TFLivePlayController alloc] initWithLiveURL:liveURL];
     [_livePlayer prepareToPlay];
     
-    _livePlayer.playView.frame = self.view.bounds;
+    _livePlayer.playView.frame = CGRectMake(0, 100, 50, 100);
     [self.view addSubview:_livePlayer.playView];
     
 }

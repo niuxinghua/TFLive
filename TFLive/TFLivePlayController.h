@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import "TFDisplayView.h"
 
 @interface TFLivePlayController : NSObject
 
@@ -15,7 +16,7 @@
 
 @property (nonatomic, copy) NSURL *liveURL;
 
-@property (nonatomic, strong) UIView *playView;
+@property (nonatomic, strong, readonly) TFDisplayView *playView;
 
 -(void)stop;
 

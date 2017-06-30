@@ -8,8 +8,11 @@
 
 #include "TFFFplayer.h"
 
+
+#pragma mark - definitions
+
 void startReadPackets(TFVideoState *videoState);
-int decodeStream(TFVideoState *videoState, int streamIndex);
+int decodeStream(TFLivePlayer *player, int streamIndex);
 
 void packetQueueInit(TFPacketQueue *pktQueue, char *name);
 void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt);
@@ -17,13 +20,18 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished);
 void packetQueueDestory(TFPacketQueue *pktQueue);
 
 void frameQueueInit(TFFrameQueue *frameQueue, char *name);
-void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame);
+void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame *frame);
 TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished);
 void frameQueueDestory(TFFrameQueue *frameQueue);
 
+inline static TFFrame *TFFRameFillOrAlloc(TFFrameDisplayer *display, TFFrame *compositeFrame, AVFrame *originalFrame);
+
+#pragma mark -
 
 int findStreams(void *data){
-    TFVideoState *videoState = data;
+    
+    TFLivePlayer *player = data;
+    TFVideoState *videoState = player->videoState;
     
     AVFormatContext *formatCtx = avformat_alloc_context();
     if (avformat_open_input(&formatCtx, videoState->filename, NULL, NULL) != 0) {
@@ -50,17 +58,17 @@ int findStreams(void *data){
     
     //video
     if (streamIndex[AVMEDIA_TYPE_VIDEO] >= 0) {
-        decodeStream(videoState, streamIndex[AVMEDIA_TYPE_VIDEO]);
+        decodeStream(player, streamIndex[AVMEDIA_TYPE_VIDEO]);
         
         //subtitle
         if (streamIndex[AVMEDIA_TYPE_SUBTITLE] >= 0) {
-            decodeStream(videoState, streamIndex[AVMEDIA_TYPE_SUBTITLE]);
+            decodeStream(player, streamIndex[AVMEDIA_TYPE_SUBTITLE]);
         }
     }
     
     //audio
     if (streamIndex[AVMEDIA_TYPE_AUDIO] >= 0) {
-        decodeStream(videoState, streamIndex[AVMEDIA_TYPE_AUDIO]);
+        decodeStream(player, streamIndex[AVMEDIA_TYPE_AUDIO]);
     }
     
     startReadPackets(videoState);
@@ -68,8 +76,9 @@ int findStreams(void *data){
     return 0;
 }
 
-int decodeStream(TFVideoState *videoState, int streamIndex){
+int decodeStream(TFLivePlayer *player, int streamIndex){
     
+    TFVideoState *videoState = player->videoState;
     AVFormatContext *formatCtx = videoState->formatCtx;
     
     AVCodecContext *codecCtx = avcodec_alloc_context3(NULL);
@@ -104,7 +113,7 @@ int decodeStream(TFVideoState *videoState, int streamIndex){
         
         //init decoder
         videoState->videoFrameDecoder = frameDecoderInit(codecCtx);
-        TFSDL_createThreadEx(&videoState->videoFrameDecoder->frameReadThread, videoFrameRead, videoState, "videoFrameRead");
+        TFSDL_createThreadEx(&videoState->videoFrameDecoder->frameReadThread, videoFrameRead, player, "videoFrameRead");
         
     }else if (codec->type == AVMEDIA_TYPE_AUDIO){
         
@@ -291,8 +300,8 @@ TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx){
 
 int videoFrameRead(void *data){
     
-    TFVideoState *videoState = data;
-    AVFormatContext *formatCtx = videoState->formatCtx;
+    TFLivePlayer *player = data;
+    TFVideoState *videoState = player->videoState;
     AVCodecContext *codecCtx = videoState->videoFrameDecoder->codexCtx;
     
     bool finished = false;
@@ -315,8 +324,8 @@ int videoFrameRead(void *data){
         if (retval < 0) {
             printf("decode frame error: %d",retval);
         }
-        
-        frameQueuePut(&videoState->videoFrameQueue, frame);
+
+        frameQueuePut(player->dispalyer, &videoState->videoFrameQueue, frame);
     }
     
     return 0;
@@ -351,7 +360,7 @@ void frameQueueInit(TFFrameQueue *frameQueue, char *name){
     frameQueue->recycleCount = 10;
 }
 
-void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame){
+void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame *frame){
     
     TFSDL_LockMutex(frameQueue->mutex);
     
@@ -377,7 +386,7 @@ void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame){
     
     
     //using recycleFrameNodeLast, and move back it if there is stil recycle node.
-    frameQueue->recycleFrameNodeLast->frame = TFFRameAlloc(frame);
+    frameQueue->recycleFrameNodeLast->frame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
     frameQueue->recycleCount --;
     if (frameQueue->recycleCount != 0) {
         frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
@@ -459,55 +468,28 @@ void frameQueueDestory(TFFrameQueue *frameQueue){
 
 #pragma mark - display frame
 
-struct SDL_Class {
-    const char *name;
-};
-
-struct SDL_VoutOverlay {
-    int w; /**< Read-only */
-    int h; /**< Read-only */
-    UInt32 format; /**< Read-only */
-    int planes; /**< Read-only */
-    UInt16 *pitches; /**< in bytes, Read-only */
-    UInt8 **pixels; /**< Read-write */
+inline static TFFrame *TFFRameFillOrAlloc(TFFrameDisplayer *display, TFFrame *compositeFrame, AVFrame *originalFrame){
     
-    int is_private;
+    if (compositeFrame == NULL) {
+        compositeFrame = av_mallocz(sizeof(TFFrame));
+    }
+    compositeFrame->frame = originalFrame;
     
-    int sar_num;
-    int sar_den;
+    //overlay的create和fill因平台不同，这里做解耦处理
+    if (display->createOverlay) {
+        TFOverlay *bitmap = display->createOverlay();
+        if (bitmap->func_fill_frame) {
+            bitmap->func_fill_frame(bitmap, originalFrame);
+        }
+        compositeFrame->bitmap = bitmap;
+    }
     
-    SDL_Class               *opaque_class;
-    SDL_VoutOverlay_Opaque  *opaque;
-    
-    void    (*free_l)(SDL_VoutOverlay *overlay);
-    int     (*lock)(SDL_VoutOverlay *overlay);
-    int     (*unlock)(SDL_VoutOverlay *overlay);
-    void    (*unref)(SDL_VoutOverlay *overlay);
-    
-    int     (*func_fill_frame)(SDL_VoutOverlay *overlay, const AVFrame *frame);
-};
-
-struct SDL_VoutOverlay_Opaque {
-    TFSDL_mutex *mutex;
-    
-    AVFrame *managed_frame;
-    AVBufferRef *frame_buffer;
-    int planes;
-    
-    AVFrame *linked_frame;
-    
-    UInt16 pitches[AV_NUM_DATA_POINTERS];
-    UInt8 *pixels[AV_NUM_DATA_POINTERS];
-    
-    int no_neon_warned;
-    
-    struct SwsContext *img_convert_ctx;
-    int sws_flags;
-};
+    return compositeFrame;
+}
 
 int startDisplayFrames(void *data){
-    
-    TFVideoState *videoState = data;
+    TFLivePlayer *player = data;
+    TFVideoState *videoState = player->videoState;
     
     bool finished = false;
     while (!finished) {
@@ -517,24 +499,18 @@ int startDisplayFrames(void *data){
             continue;
         }
         
+        
+        
+        if (player->dispalyer->displayOverlay) {
+            player->dispalyer->displayOverlay(player->dispalyer, frame->bitmap);
+        }
+        
     }
     
     return 0;
 }
 
-inline static SDL_VoutOverlay *voutOverlayCreate(AVFrame *originalFrame){
-    SDL_VoutOverlay *overlay = av_mallocz(sizeof(SDL_VoutOverlay));
-    
-    return overlay;
-}
 
-inline static TFFrame *TFFRameAlloc(AVFrame *originalFrame){
-    TFFrame *compositeFrame = av_mallocz(sizeof(TFFrame));
-    compositeFrame->frame = originalFrame;
-    compositeFrame->bitmap = voutOverlayCreate(originalFrame);
-    
-    return compositeFrame;
-}
 
 
 

@@ -12,15 +12,18 @@
 #import "avcodec.h"
 #import "avformat.h"
 #include "TFFFplayer.h"
+#import <UIKit/UIKit.h>
 
 @interface TFLivePlayController (){
+    
+    TFLivePlayer *player;
+    
     TFSDL_thread threadTest;
     
     TFSDL_thread readThread;
     TFSDL_thread displayThread;
     
-    //stream
-    TFVideoState *videsState;
+    
 }
 
 @end
@@ -31,6 +34,7 @@
     if (self = [super init]) {
         self.liveURL = liveURL;
         
+        [self playViewInit];
         [self playerInit];
     }
     
@@ -51,11 +55,16 @@ int threadTestFunc(void * data){
     
     NSString *liveString = [_liveURL isFileURL] ? [_liveURL path] : [_liveURL absoluteString];
     
+    player = av_mallocz(sizeof(TFLivePlayer));
+    
     //stream
-    videsState = (TFVideoState *)av_mallocz(sizeof(TFVideoState));
+    TFVideoState *videsState = (TFVideoState *)av_mallocz(sizeof(TFVideoState));
     videsState->filename = av_strdup([liveString UTF8String]);
     strcpy(videsState->identifier, [[[NSDate date] description] UTF8String]);
     
+    player->videoState = videsState;
+    
+    player->dispalyer = frameDisplayCreate((__bridge void *)(_playView));
     
     //ffmpeg global init
     avcodec_register_all();
@@ -63,11 +72,19 @@ int threadTestFunc(void * data){
     avformat_network_init();
 }
 
+-(void)playViewInit{
+    _playView = [[TFDisplayView alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    _playView.backgroundColor = [UIColor blueColor];
+}
+
 -(void)prepareToPlay{
     [self streamOpen];
 }
 
 -(void)stop{
+    
+    TFVideoState *videsState = player->videoState;
+    
     videsState->abortRequest = true;
     
     NSLog(@"abort requested");
@@ -99,8 +116,8 @@ int threadTestFunc(void * data){
 }
 
 -(void)streamOpen{
-    TFSDL_createThreadEx(&displayThread, startDisplayFrames, videsState, "displayThread");
-    TFSDL_createThreadEx(&readThread, findStreams, videsState, "findStreams");
+    TFSDL_createThreadEx(&readThread, findStreams, player, "findStreams");
+    TFSDL_createThreadEx(&displayThread, startDisplayFrames, player, "displayThread");
 }
 
 @end
