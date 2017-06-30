@@ -29,7 +29,7 @@
 }
 
 -(void)displayOverlay:(TFOverlay *)overlay{
-    if(!overlay || !overlay->pixels[0]){
+    if(!overlay || !overlay->pixels[0] || !overlay->pixels[1]){
         return ;
     }
     
@@ -73,6 +73,7 @@
     
     UIImage *image = [UIImage imageWithCGImage:videoImage];
     CGImageRelease(videoImage);
+    CVPixelBufferRelease(pixelBuffer);
     
     dispatch_async(dispatch_get_main_queue(), ^{
         _playImgView.image = image;
