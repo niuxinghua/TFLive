@@ -7,6 +7,7 @@
 //
 
 #import "TFThreadConvience.h"
+#import <Foundation/Foundation.h>
 
 static void *SDL_RunThread(void *data)
 {
@@ -14,6 +15,8 @@ static void *SDL_RunThread(void *data)
         TFSDL_thread *thread = data;
         pthread_setname_np(thread->name);
         thread->retval = thread->func(thread->data);
+        
+        printf("%s end*** \n",thread->name);
         return NULL;
     }
 }

@@ -39,7 +39,7 @@
     sessionManager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"text/plain", nil];
     [sessionManager POST:@"http://116.211.167.106/api/live/aggregation?uid=133825214&interest=1" parameters:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         
-        NSLog(@"%@",responseObject);
+        //NSLog(@"%@",responseObject);
         
         _liveDatas = [responseObject objectForKey:@"lives"];
         

@@ -9,7 +9,7 @@
 #ifndef TFThreadConvience_h
 #define TFThreadConvience_h
 
-#import <Foundation/Foundation.h>
+
 #import <pthread.h>
 
 typedef struct TFSDL_thread{
@@ -23,6 +23,8 @@ typedef struct TFSDL_thread{
 
 
 TFSDL_thread *TFSDL_createThreadEx(TFSDL_thread *thread, int(*func)(void*), void* data, const char *name);
+
+void TFSDL_exitThread(TFSDL_thread *thread);
 
 
 //lock

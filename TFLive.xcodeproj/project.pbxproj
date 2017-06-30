@@ -37,6 +37,7 @@
 		DFFAF7BD1F0348B700AB4332 /* TFLivePlayController.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFAF7BC1F0348B700AB4332 /* TFLivePlayController.m */; };
 		DFFAF7C01F034A0200AB4332 /* TFMoviePlayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFAF7BF1F034A0200AB4332 /* TFMoviePlayViewController.m */; };
 		DFFAF7C21F03578300AB4332 /* TFThreadConvience.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */; };
+		DFFD536F1F0623830000AFAB /* TFFFplayer.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFD536D1F0623830000AFAB /* TFFFplayer.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -200,6 +201,8 @@
 		DFFAF7BF1F034A0200AB4332 /* TFMoviePlayViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFMoviePlayViewController.m; sourceTree = "<group>"; };
 		DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFThreadConvience.m; sourceTree = "<group>"; };
 		DFFAF7C31F03579A00AB4332 /* TFThreadConvience.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TFThreadConvience.h; sourceTree = "<group>"; };
+		DFFD536D1F0623830000AFAB /* TFFFplayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFFFplayer.m; sourceTree = "<group>"; };
+		DFFD536E1F0623830000AFAB /* TFFFplayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFFFplayer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -565,6 +568,8 @@
 				DFFAF7BC1F0348B700AB4332 /* TFLivePlayController.m */,
 				DFFAF7C31F03579A00AB4332 /* TFThreadConvience.h */,
 				DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */,
+				DFFD536E1F0623830000AFAB /* TFFFplayer.h */,
+				DFFD536D1F0623830000AFAB /* TFFFplayer.m */,
 			);
 			path = TFLive;
 			sourceTree = "<group>";
@@ -715,6 +720,7 @@
 				DFFAF70F1F03472D00AB4332 /* AppDelegate.m in Sources */,
 				DFFAF7C21F03578300AB4332 /* TFThreadConvience.m in Sources */,
 				DFFAF70C1F03472D00AB4332 /* main.m in Sources */,
+				DFFD536F1F0623830000AFAB /* TFFFplayer.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
