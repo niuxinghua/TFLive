@@ -20,6 +20,7 @@ struct TFOverlay {
     int width;
     int height;
     UInt32 format;
+    int planes;
     
     UInt8 *pixels[AV_NUM_DATA_POINTERS];
     UInt16 linesize[AV_NUM_DATA_POINTERS];

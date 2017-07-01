@@ -319,8 +319,11 @@ int videoFrameRead(void *data){
         if (pkt == NULL) {
             continue;
         }
-        
-        int retval = avcodec_decode_video2(codecCtx, frame, &gotPicture, pkt);
+        int retval = avcodec_send_packet(codecCtx, pkt);
+        if (retval != 0) {
+            printf("avcodec_send_packet error:%d\n",retval);
+        }
+        retval = avcodec_receive_frame(codecCtx, frame);
         if (retval < 0) {
             printf("decode frame error: %d",retval);
         }
@@ -447,7 +450,7 @@ void frameQueueDestory(TFFrameQueue *frameQueue){
     TFFrameNode *cur = first->pre;
     while (cur != NULL) {
         if (cur->frame) {
-            av_frame_free(&cur->frame->frame);
+            //av_frame_free(&cur->frame->frame);
             av_free(cur->frame->bitmap);
             av_free(cur->frame);
         }

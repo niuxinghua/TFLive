@@ -74,7 +74,7 @@ int threadTestFunc(void * data){
 
 -(void)playViewInit{
     _playView = [[TFDisplayView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    _playView.backgroundColor = [UIColor blueColor];
+    _playView.backgroundColor = [UIColor blackColor];
 }
 
 -(void)prepareToPlay{
