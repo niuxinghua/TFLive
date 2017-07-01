@@ -312,14 +312,17 @@ int videoFrameRead(void *data){
         if (!videoState->videoFrameQueue.canInsert) {
             continue;
         }
-        printf("will get packet ");
+        //printf("will get packet ");
         AVPacket *pkt = packetQueueGet(&videoState->videoPktQueue,&finished);
-        printf("get end packet\n");
+//        printf("get end packet\n");
         
         if (pkt == NULL) {
             continue;
         }
+        
+        printf("send packet!!  ");
         int retval = avcodec_send_packet(codecCtx, pkt);
+        printf("got packet!!\n");
         if (retval != 0) {
             printf("avcodec_send_packet error:%d\n",retval);
         }
@@ -329,6 +332,23 @@ int videoFrameRead(void *data){
         }
 
         frameQueuePut(player->dispalyer, &videoState->videoFrameQueue, frame);
+    }
+    
+    if (videoState->abortRequest) {
+        if (videoState->videoFrameDecoder) {
+            if (videoState->videoFrameDecoder->codexCtx) {
+                avcodec_close(videoState->videoFrameDecoder->codexCtx);
+            }
+            av_free(videoState->videoFrameDecoder);
+        }
+        
+        if (videoState->formatCtx) {
+            NSLog(@"release formatCtx");
+            avformat_close_input(&videoState->formatCtx);
+        }
+        
+        packetQueueDestory(&videoState->videoPktQueue);
+        frameQueueDestory(&videoState->videoFrameQueue);
     }
     
     return 0;

@@ -18,8 +18,6 @@
     
     TFLivePlayer *player;
     
-    TFSDL_thread threadTest;
-    
     TFSDL_thread readThread;
     TFSDL_thread displayThread;
     
@@ -39,16 +37,6 @@
     }
     
     return self;
-}
-
-int threadTestFunc(void * data){
-    char *str = (char*)data;
-    while (1) {
-        sleep(1);
-        printf("%s",str);
-    }
-    
-    return 1;
 }
 
 -(void)playerInit{
@@ -92,32 +80,27 @@ int threadTestFunc(void * data){
     videsState->videoPktQueue.abortRequest = true;
     videsState->videoFrameQueue.abortRequest = true;
     
-    pthread_cancel(readThread.thread_id);
-    pthread_cancel(displayThread.thread_id);
     
-    packetQueueDestory(&videsState->videoPktQueue);
-    frameQueueDestory(&videsState->videoFrameQueue);
-    
-    if (videsState->videoFrameDecoder) {
-        if (videsState->videoFrameDecoder->codexCtx) {
-            avcodec_close(videsState->videoFrameDecoder->codexCtx);
-        }
-        av_free(videsState->videoFrameDecoder);
-    }
-    
-    if (videsState->formatCtx) {
-        NSLog(@"release formatCtx");
-        avformat_close_input(&videsState->formatCtx);
-    }
+    NSLog(@"cancel frameReadThread");
     
     
     //audio, subtitle ...
-    
+    //TODO: 建一个消息通知渠道，在解码流程所有的线程结束后，再通知释放formatContext,codecContext这些资源
 }
 
 -(void)streamOpen{
     TFSDL_createThreadEx(&readThread, findStreams, player, "findStreams");
     TFSDL_createThreadEx(&displayThread, startDisplayFrames, player, "displayThread");
+}
+
+-(void)dealloc{
+    TFVideoState *videsState = player->videoState;
+    
+    pthread_cancel(readThread.thread_id);
+    pthread_cancel(displayThread.thread_id);
+    
+    pthread_cancel(videsState->videoFrameDecoder->frameReadThread.thread_id);
+
 }
 
 @end

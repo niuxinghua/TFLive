@@ -43,20 +43,23 @@ uint8_t *rgbbuf;
     }
     
     //uint8_t rgbbuf[width*height*24];
-    testConvertYUV420pToRGBA(overlay, rgbbuf, linesize*4, height);
-    
+    convertYUV420pToRGBA(overlay, rgbbuf, linesize*4, height);
+    av_free(overlay);
     
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGContextRef contextRef = CGBitmapContextCreate(rgbbuf, width, height, 8,width*4, colorSpace, kCGImageAlphaNoneSkipFirst);
-    UIImage *image = [UIImage imageWithCGImage:CGBitmapContextCreateImage(contextRef)];
+    CGImageRef imageRef = CGBitmapContextCreateImage(contextRef);
+    UIImage *image = [UIImage imageWithCGImage:imageRef];
+    
+    CGImageRelease(imageRef);
+    CGContextRelease(contextRef);
     
     dispatch_async(dispatch_get_main_queue(), ^{
         _playImgView.image = image;
     });
-    
 }
 
-static void testConvertYUV420pToRGBA(TFOverlay * overlay, uint8_t *outbuf, int linesize, int height)
+static void convertYUV420pToRGBA(TFOverlay * overlay, uint8_t *outbuf, int linesize, int height)
 {
     const int linesizeY = overlay->linesize[0];
     const int linesizeU = overlay->linesize[1];
