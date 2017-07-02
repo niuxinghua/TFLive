@@ -44,7 +44,8 @@ uint8_t *rgbbuf;
     
     //uint8_t rgbbuf[width*height*24];
     convertYUV420pToRGBA(overlay, rgbbuf, linesize*4, height);
-    av_free(overlay);
+    //TODO: free overlay
+    //av_free(overlay);
     
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGContextRef contextRef = CGBitmapContextCreate(rgbbuf, width, height, 8,width*4, colorSpace, kCGImageAlphaNoneSkipFirst);

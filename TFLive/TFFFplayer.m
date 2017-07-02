@@ -137,13 +137,13 @@ void startReadPackets(TFVideoState *videoState){
             continue;
         }
         
-        printf("%s",formatCtx == NULL ?"formatCtx is null\n": "read packet\n");
-        printf("*************\n");
+        //printf("%s",formatCtx == NULL ?"formatCtx is null\n": "read packet\n");
+        //printf("*************\n");
         int retval = av_read_frame(formatCtx, pkt);
-        printf("read packet ended\n");
+        //printf("read packet ended\n");
         if (retval < 0) {
             if (retval == AVERROR_EOF) {
-                printf("read frame ended");
+                //printf("read frame ended");
             }
             
             continue;
@@ -179,18 +179,20 @@ void packetQueueInit(TFPacketQueue *pktQueue, char *name){
     for (int i = 1; i<kMaxAllocPacketNodeCount/10; i++) {
         TFPacketNode *node = av_mallocz(sizeof(TFPacketNode));
         node->pre = cur;
+        cur->next = node;
         cur = node;
     }
     
     //cycle the link
     head->pre = cur;
+    cur->next = head;
     
     pktQueue->allocCount = 10;
     pktQueue->recycleCount = 10;
 }
 
 void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt){
-    printf("will put packet");
+    //printf("will put packet");
     TFSDL_LockMutex(pktQueue->mutex);
     
     //Alloc and insert new node if recycle node has used up.
@@ -198,31 +200,66 @@ void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt){
         
         //recyclePacketNodeLast->pre == usedPacketNodeLast
         TFPacketNode *node = av_mallocz(sizeof(TFPacketNode));
-        pktQueue->recyclePacketNodeLast->pre = node;
+        
+        pktQueue->recyclePacketNodeLast->next->pre = node;
+        node->next = pktQueue->recyclePacketNodeLast->next;
+        
         node->pre = pktQueue->usedPacketNodeLast;
+        pktQueue->usedPacketNodeLast->next = node;
+        
         pktQueue->recyclePacketNodeLast = node;
         
         pktQueue->allocCount ++;
         pktQueue->recycleCount ++;
         
-        printf("alloc new packet");
+        //printf("alloc new packet");
         
         if (pktQueue->allocCount >= pktQueue->maxAllocCount) {
             pktQueue->canInsert = false;
         }
     }
     
-    //using recyclePacketNodeLast, and move back it if there is stil recycle node.
-    pktQueue->recyclePacketNodeLast->packet = *pkt;
-    pktQueue->recycleCount --;
-    if (pktQueue->recycleCount != 0) {
-        pktQueue->recyclePacketNodeLast = pktQueue->recyclePacketNodeLast->pre;
+    //sorting packets by dts
+    TFPacketNode *curPkt = pktQueue->recyclePacketNodeLast->next;
+    TFPacketNode *insertMarkPkt = NULL;
+    while (curPkt != pktQueue->usedPacketNodeLast->next ) {
+        if (curPkt->packet.dts > pkt->dts) {
+            curPkt = curPkt->next;
+        }else{
+            insertMarkPkt = curPkt;
+            break;
+        }
     }
     
+    //first
+    if (insertMarkPkt == pktQueue->recyclePacketNodeLast->next) {
+        pktQueue->recyclePacketNodeLast->packet = *pkt;
+        pktQueue->recycleCount --;
+        pktQueue->recyclePacketNodeLast = pktQueue->recyclePacketNodeLast->pre;
+    }else if (insertMarkPkt == NULL){
+        //out used range
+        pktQueue->usedPacketNodeLast->next->packet = *pkt;
+        pktQueue->usedPacketNodeLast = pktQueue->usedPacketNodeLast->next;
+        pktQueue->recycleCount --;
+    }else{
+        //alloc new node and insert it to be previous of insertMarkPkt
+        
+        TFPacketNode *node = av_mallocz(sizeof(TFPacketNode));
+        insertMarkPkt->pre->next = node;
+        node->pre = insertMarkPkt->pre;
+        node->next = insertMarkPkt;
+        insertMarkPkt->pre = node;
+        
+        node->packet = *pkt;
+        
+        pktQueue->allocCount ++;
+        
+        printf(">>>>>>>>insert early packet: %lld ->(%lld - %lld)\n",pkt->dts, pktQueue->recyclePacketNodeLast->next->packet.dts,pktQueue->usedPacketNodeLast->packet.dts);
+    }
     //printf("\ninsert packet: %d-%d\n",pktQueue->allocCount,pktQueue->recycleCount);
     
     TFSDL_UnlockMutex(pktQueue->mutex);
-    printf("put end packet");
+    //printf("put end packet");
 }
 
 AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
@@ -235,7 +272,7 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
     
     TFSDL_LockMutex(pktQueue->mutex);
     
-    if (pktQueue->recycleCount == pktQueue->allocCount) {
+    if (pktQueue->recycleCount > pktQueue->allocCount * 0.75) {
         //printf("|");
         TFSDL_UnlockMutex(pktQueue->mutex);
         return NULL;
@@ -246,9 +283,6 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
     //pktQueue->usedPacketNodeLast->packet = NULL;
     pktQueue->recycleCount ++;
     
-    if (pktQueue->recycleCount == 1) {
-        pktQueue->recyclePacketNodeLast = pktQueue->usedPacketNodeLast;
-    }
     pktQueue->usedPacketNodeLast = pktQueue->usedPacketNodeLast->pre;
     
     if (!pktQueue->canInsert && pktQueue->recycleCount > pktQueue->allocCount/2) {
@@ -259,7 +293,7 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
     
     TFSDL_UnlockMutex(pktQueue->mutex);
     
-    
+    //printf("packet dts: %lld\n",firstPkt->dts);
     
     return firstPkt;
 }
@@ -306,7 +340,8 @@ int videoFrameRead(void *data){
     
     bool finished = false;
     AVFrame *frame = av_frame_alloc();
-    int gotPicture = true;
+    
+    int64_t curDts = 0;
     
     while (!finished && !videoState->abortRequest) {
         if (!videoState->videoFrameQueue.canInsert) {
@@ -320,15 +355,24 @@ int videoFrameRead(void *data){
             continue;
         }
         
-        printf("send packet!!  ");
+        //printf("send packet!! %lld",pkt->dts);
+        if (pkt->dts < curDts) {
+            printf("<<<<<<<<find early packet! %lld -- %lld\n",pkt->dts, curDts);
+        }
+        curDts = pkt->dts;
         int retval = avcodec_send_packet(codecCtx, pkt);
-        printf("got packet!!\n");
+        //printf("got packet!! %lld\n",pkt->dts);
+        
+        
         if (retval != 0) {
             printf("avcodec_send_packet error:%d\n",retval);
         }
         retval = avcodec_receive_frame(codecCtx, frame);
         if (retval < 0) {
-            printf("decode frame error: %d",retval);
+            printf("decode frame error: %d\n",retval);
+        }
+        if (frame->pict_type >= AV_PICTURE_TYPE_B) {
+            printf("%d\n",frame->pict_type);
         }
 
         frameQueuePut(player->dispalyer, &videoState->videoFrameQueue, frame);
@@ -373,11 +417,13 @@ void frameQueueInit(TFFrameQueue *frameQueue, char *name){
     for (int i = 1; i<kMaxAllocFrameNodeCount/10; i++) {
         TFFrameNode *node = av_mallocz(sizeof(TFFrameNode));
         node->pre = cur;
+        cur->next = node;
         cur = node;
     }
     
     //cycle the link
     head->pre = cur;
+    cur->next = head;
     
     frameQueue->allocCount = 10;
     frameQueue->recycleCount = 10;
@@ -391,8 +437,13 @@ void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame 
     if (frameQueue->recycleCount == 0) {
         //recycleFrameNodeLast->pre == usedFrameNodeLast
         TFFrameNode *node = av_mallocz(sizeof(TFFrameNode));
+        
         frameQueue->recycleFrameNodeLast->pre = node;
+        node->next = frameQueue->recycleFrameNodeLast;
+        
         node->pre = frameQueue->usedFrameNodeLast;
+        frameQueue->usedFrameNodeLast->next = node;
+        
         frameQueue->recycleFrameNodeLast = node;
         
         frameQueue->allocCount ++;
@@ -403,60 +454,103 @@ void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame 
             frameQueue->canInsert = false;
         }
         
-        printf("alloc new frame");
+        //printf("alloc new frame");
     }
     
+    TFFrameNode *curFrame = frameQueue->recycleFrameNodeLast->next;
+    TFFrameNode *insertMarkFrame = NULL;
+    while (curFrame != frameQueue->usedFrameNodeLast->next ) {
+        if (curFrame->frame->frame->pts > frame->pts) {
+            curFrame = curFrame->next;
+        }else{
+            insertMarkFrame = curFrame;
+            break;
+        }
+    }
+    
+    //first
+    TFFrame *newFrame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
+    if (insertMarkFrame == frameQueue->recycleFrameNodeLast->next) {
+        frameQueue->recycleFrameNodeLast->frame = newFrame;
+        frameQueue->recycleCount --;
+        frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
+    }else if (insertMarkFrame == NULL){
+        //out used range
+        frameQueue->usedFrameNodeLast->next->frame = newFrame;
+        frameQueue->usedFrameNodeLast = frameQueue->usedFrameNodeLast->next;
+        frameQueue->recycleCount --;
+    }else{
+        //alloc new node and insert it to be previous of insertMarkPkt
+        
+        TFFrameNode *node = av_mallocz(sizeof(TFFrameNode));
+        insertMarkFrame->pre->next = node;
+        node->pre = insertMarkFrame->pre;
+        node->next = insertMarkFrame;
+        insertMarkFrame->pre = node;
+        
+        node->frame = newFrame;
+        
+        frameQueue->allocCount ++;
+    }
     
     
     //using recycleFrameNodeLast, and move back it if there is stil recycle node.
-    frameQueue->recycleFrameNodeLast->frame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
-    frameQueue->recycleCount --;
-    if (frameQueue->recycleCount != 0) {
-        frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
-    }
+//    frameQueue->recycleFrameNodeLast->frame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
+//    frameQueue->recycleCount --;
+//    frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
     
     //printf("\nframe count: %d-%d\n",frameQueue->allocCount,frameQueue->recycleCount);
     
     TFSDL_UnlockMutex(frameQueue->mutex);
 }
 
-TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
+TFFrame *frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
+    
     if (frameQueue->abortRequest) {
         *finished = true;
         return NULL;
     }
-    if (frameQueue->allocCount == 0) {
+    if (frameQueue->allocCount == 0 || frameQueue->recycleCount == frameQueue->allocCount) {
         *finished = false;
         return NULL;
     }
     
+    TFFrame *firstFrame = frameQueue->usedFrameNodeLast->frame;
+    
+    return firstFrame;
+}
+
+void frameQueueUseOne(TFFrameQueue *frameQueue, bool *finished){
+    
     TFSDL_LockMutex(frameQueue->mutex);
+    
+    if (frameQueue->abortRequest) {
+        *finished = true;
+        TFSDL_UnlockMutex(frameQueue->mutex);
+        return;
+    }
+    if (frameQueue->allocCount == 0) {
+        *finished = false;
+        TFSDL_UnlockMutex(frameQueue->mutex);
+        return;
+    }
     
     if (frameQueue->recycleCount == frameQueue->allocCount) {
         //printf("=");
         TFSDL_UnlockMutex(frameQueue->mutex);
-        return NULL;
+        return;
     }
-    
-    TFFrame *firstframe = frameQueue->usedFrameNodeLast->frame;
     
     frameQueue->usedFrameNodeLast->frame = NULL;
     frameQueue->recycleCount ++;
     
-    if (frameQueue->recycleCount == 1) {
-        frameQueue->recycleFrameNodeLast = frameQueue->usedFrameNodeLast;
-    }
     frameQueue->usedFrameNodeLast = frameQueue->usedFrameNodeLast->pre;
     
     if (!frameQueue->canInsert && frameQueue->recycleCount > frameQueue->allocCount/2) {
         frameQueue->canInsert = true;
     }
     
-    //printf("\nframe count: %d-%d\n",frameQueue->allocCount,frameQueue->recycleCount);
-    
     TFSDL_UnlockMutex(frameQueue->mutex);
-    
-    return firstframe;
 }
 
 void frameQueueDestory(TFFrameQueue *frameQueue){
@@ -516,15 +610,23 @@ int startDisplayFrames(void *data){
     
     bool finished = false;
     while (!finished) {
+        
         TFFrame *frame = frameQueueGet(&videoState->videoFrameQueue, &finished);
         //sleep(1);
         if (frame == NULL) {
             continue;
         }
         
+        double delay = 0.05;
+        double time = av_gettime_relative() / 1000000.0;
+        if (time < videoState->frameTimer + delay) {
+            continue;
+        }
         
+        frameQueueUseOne(&videoState->videoFrameQueue, &finished);
         
         if (player->dispalyer->displayOverlay) {
+            videoState->frameTimer = av_gettime_relative() / 1000000.0;
             player->dispalyer->displayOverlay(player->dispalyer, frame->bitmap);
         }
         

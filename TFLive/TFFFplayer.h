@@ -28,6 +28,7 @@ typedef struct TFFrameDecoder{
 typedef struct TFPacketNode{
     AVPacket packet;
     struct TFPacketNode *pre;
+    struct TFPacketNode *next;
 }TFPacketNode;
 
 typedef struct TFPacketQueue{
@@ -57,6 +58,7 @@ typedef struct TFFrame{
 typedef struct TFFrameNode{
     TFFrame *frame;
     struct TFFrameNode *pre;
+    struct TFFrameNode *next;
 }TFFrameNode;
 
 typedef struct TFFrameQueue{
@@ -97,10 +99,13 @@ typedef struct TFVideoState{
     TFFrameDecoder *audioFrameDecoder;
     TFFrameDecoder *subtitleFrameDecoder;
     
+    int64_t frameTimer;
+    
     //controls
     bool abortRequest;
     
     char identifier[30];
+    
     
 }TFVideoState;
 
