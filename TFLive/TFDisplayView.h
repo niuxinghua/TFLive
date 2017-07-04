@@ -7,7 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "TFDisplay.h"
+#import "TFVideoDisplayer_ios.h"
 
 @interface TFDisplayView : UIView
 

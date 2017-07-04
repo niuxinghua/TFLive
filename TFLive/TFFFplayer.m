@@ -7,7 +7,7 @@
 //
 
 #include "TFFFplayer.h"
-
+#include "TFAudioQueueController.h"
 
 #pragma mark - definitions
 
@@ -20,11 +20,14 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished);
 void packetQueueDestory(TFPacketQueue *pktQueue);
 
 void frameQueueInit(TFFrameQueue *frameQueue, char *name);
-void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame *frame);
+void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame, void *data);
 TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished);
 void frameQueueDestory(TFFrameQueue *frameQueue);
 
-inline static TFFrame *TFFRameFillOrAlloc(TFFrameDisplayer *display, TFFrame *compositeFrame, AVFrame *originalFrame);
+inline static TFFrame *TFVideoFrameFillOrAlloc(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
+inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
+
+int audioOpen(TFLivePlayer *player, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *resultAudioParams);
 
 #pragma mark -
 
@@ -110,12 +113,27 @@ int decodeStream(TFLivePlayer *player, int streamIndex){
         
         packetQueueInit(&videoState->videoPktQueue, "视频packet");
         frameQueueInit(&videoState->videoFrameQueue, "视频frame");
+        videoState->videoFrameQueue.convertFunc = TFVideoFrameFillOrAlloc;
         
         //init decoder
         videoState->videoFrameDecoder = frameDecoderInit(codecCtx);
         TFSDL_createThreadEx(&videoState->videoFrameDecoder->frameReadThread, videoFrameRead, player, "videoFrameRead");
         
     }else if (codec->type == AVMEDIA_TYPE_AUDIO){
+        
+        videoState->audioStreamIndex = streamIndex;
+        videoState->audioStream = formatCtx->streams[streamIndex];
+        
+        packetQueueInit(&videoState->audioPktQueue, "音频packet");
+        frameQueueInit(&videoState->audioFrameQueue, "音频frame");
+        videoState->audioFrameQueue.convertFunc = TFAudioFrameConvert;
+        
+        //audio open
+        audioOpen(player, codecCtx->channel_layout, codecCtx->channels, codecCtx->sample_rate, &videoState->targetAudioParams);
+        videoState->sourceAudioParams = videoState->targetAudioParams;
+        
+        videoState->audioFrameDecoder = frameDecoderInit(codecCtx);
+        TFSDL_createThreadEx(&videoState->audioFrameDecoder->frameReadThread, audioFrameRead, player, "audioFrameRead");
         
     }else if (codec->type == AVMEDIA_TYPE_SUBTITLE){
         
@@ -153,8 +171,9 @@ void startReadPackets(TFVideoState *videoState){
             
             packetQueuePut(&videoState->videoPktQueue, pkt);
             
+        }else if (pkt->stream_index == videoState->audioStreamIndex){
+            packetQueuePut(&videoState->audioPktQueue, pkt);
         }
-        //other streams ...
         
     }
     
@@ -323,8 +342,6 @@ void packetQueueDestory(TFPacketQueue *pktQueue){
 
 #pragma mark - frame queue
 
-
-
 TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx){
     TFFrameDecoder *decoder = av_mallocz(sizeof(TFFrameDecoder));
     decoder->codexCtx = codecCtx;
@@ -332,6 +349,7 @@ TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx){
     return decoder;
 }
 
+//视频:读取packet到frame
 int videoFrameRead(void *data){
     
     TFLivePlayer *player = data;
@@ -375,7 +393,7 @@ int videoFrameRead(void *data){
             printf("%d\n",frame->pict_type);
         }
 
-        frameQueuePut(player->dispalyer, &videoState->videoFrameQueue, frame);
+        frameQueuePut(player->videoDispalyer, &videoState->videoFrameQueue, frame);
     }
     
     if (videoState->abortRequest) {
@@ -393,6 +411,38 @@ int videoFrameRead(void *data){
         
         packetQueueDestory(&videoState->videoPktQueue);
         frameQueueDestory(&videoState->videoFrameQueue);
+    }
+    
+    return 0;
+}
+
+//音频:读取packet到frame
+int audioFrameRead(void *data){
+    TFLivePlayer *player = data;
+    TFVideoState *videoState = player->videoState;
+    
+    AVFrame *frame = av_frame_alloc();
+    
+    bool finished = false;
+    while (!finished && !videoState->abortRequest) {
+        AVPacket *pkt = packetQueueGet(&videoState->audioPktQueue, &finished);
+        
+        int retval = avcodec_send_packet(videoState->audioFrameDecoder->codexCtx, pkt);
+        if (retval != 0) {
+            printf("send audio packet error: %d",retval);
+            continue;
+        }
+        while (1) {
+            
+            retval = avcodec_receive_frame(videoState->audioFrameDecoder->codexCtx, frame);
+            if (retval != 0) {
+                break;
+            }
+            
+            frameQueuePut(&videoState->audioFrameQueue, frame, NULL);
+            
+        }
+        
     }
     
     return 0;
@@ -429,7 +479,7 @@ void frameQueueInit(TFFrameQueue *frameQueue, char *name){
     frameQueue->recycleCount = 10;
 }
 
-void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame *frame){
+void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame, void *data){
     
     TFSDL_LockMutex(frameQueue->mutex);
     
@@ -469,7 +519,9 @@ void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame 
     }
     
     //first
-    TFFrame *newFrame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
+    TFFrame *newFrame = frameQueue->convertFunc(frameQueue->recycleFrameNodeLast->frame, frame, data);
+    //TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
+    
     if (insertMarkFrame == frameQueue->recycleFrameNodeLast->next) {
         frameQueue->recycleFrameNodeLast->frame = newFrame;
         frameQueue->recycleCount --;
@@ -492,14 +544,6 @@ void frameQueuePut(TFFrameDisplayer *display, TFFrameQueue *frameQueue, AVFrame 
         
         frameQueue->allocCount ++;
     }
-    
-    
-    //using recycleFrameNodeLast, and move back it if there is stil recycle node.
-//    frameQueue->recycleFrameNodeLast->frame = TFFRameFillOrAlloc(display, frameQueue->recycleFrameNodeLast->frame, frame);
-//    frameQueue->recycleCount --;
-//    frameQueue->recycleFrameNodeLast = frameQueue->recycleFrameNodeLast->pre;
-    
-    //printf("\nframe count: %d-%d\n",frameQueue->allocCount,frameQueue->recycleCount);
     
     TFSDL_UnlockMutex(frameQueue->mutex);
 }
@@ -585,8 +629,9 @@ void frameQueueDestory(TFFrameQueue *frameQueue){
 
 #pragma mark - display frame
 
-inline static TFFrame *TFFRameFillOrAlloc(TFFrameDisplayer *display, TFFrame *compositeFrame, AVFrame *originalFrame){
-    
+//视频frame的转换方法
+inline static TFFrame *TFVideoFrameFillOrAlloc(TFFrame *compositeFrame, AVFrame *originalFrame, void *data){
+    TFVideoDisplayer *display = data;
     if (compositeFrame == NULL) {
         compositeFrame = av_mallocz(sizeof(TFFrame));
     }
@@ -595,11 +640,22 @@ inline static TFFrame *TFFRameFillOrAlloc(TFFrameDisplayer *display, TFFrame *co
     //overlay的create和fill因平台不同，这里做解耦处理
     if (display->createOverlay) {
         TFOverlay *bitmap = display->createOverlay();
-        if (bitmap->func_fill_frame) {
-            bitmap->func_fill_frame(bitmap, originalFrame);
+        if (bitmap->fillVideoFrameFunc) {
+            bitmap->fillVideoFrameFunc(bitmap, originalFrame);
         }
         compositeFrame->bitmap = bitmap;
     }
+    
+    return compositeFrame;
+}
+
+//音频frame的转换方法
+inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *originalFrame, void *data){
+    
+    if (compositeFrame == NULL) {
+        compositeFrame = av_mallocz(sizeof(TFFrame));
+    }
+    compositeFrame->frame = originalFrame;
     
     return compositeFrame;
 }
@@ -625,9 +681,9 @@ int startDisplayFrames(void *data){
         
         frameQueueUseOne(&videoState->videoFrameQueue, &finished);
         
-        if (player->dispalyer->displayOverlay) {
+        if (player->videoDispalyer->displayOverlay) {
             videoState->frameTimer = av_gettime_relative() / 1000000.0;
-            player->dispalyer->displayOverlay(player->dispalyer, frame->bitmap);
+            player->videoDispalyer->displayOverlay(player->videoDispalyer, frame->bitmap);
         }
         
     }
@@ -635,7 +691,100 @@ int startDisplayFrames(void *data){
     return 0;
 }
 
+int audioOpen(TFLivePlayer *player, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *resultAudioParams){
+    
+    TFAudioDisplayer *audioDisplayer = player->audioDisplayer;
+    
+    if (!wanted_channel_layout || wanted_nb_channels != av_get_channel_layout_nb_channels(wanted_channel_layout)) {
+        wanted_channel_layout = av_get_default_channel_layout(wanted_nb_channels);
+    }
+    
+    wanted_nb_channels = av_get_channel_layout_nb_channels(wanted_channel_layout);
+    
+    TFAudioSpecifics wanted_spec, spec;
+    wanted_spec.channels = wanted_nb_channels;
+    wanted_spec.sampleRate = wanted_sample_rate;
+    if (wanted_spec.channels <= 0 || wanted_spec.sampleRate <= 0) {
+        printf("invilid channels or sample rate!");
+        return -1;
+    }
+    wanted_spec.format = 0x8010; /**< Signed 16-bit samples */
+    //wanted_spec.silence
+    //wanted_spec.samples
+    wanted_spec.fillBufferfunc = fill_audio_buffer;
+    wanted_spec.callbackData = player;
+    if (audioDisplayer->openAudio(audioDisplayer, &wanted_spec, &spec) < 0) {
+        printf("can't find feasiable audio specifics");
+        return -1;
+    }
+    
+    resultAudioParams->freq = spec.sampleRate;
+    resultAudioParams->channels = spec.channels;
+    resultAudioParams->channel_layout = wanted_channel_layout;
+    resultAudioParams->fmt = AV_SAMPLE_FMT_S16;
+    resultAudioParams->frame_size = av_samples_get_buffer_size(NULL, resultAudioParams->channels, 1, resultAudioParams->fmt, 1);
+    resultAudioParams->bytes_per_sec = av_samples_get_buffer_size(NULL, resultAudioParams->channels, resultAudioParams->freq, resultAudioParams->fmt, 1);
+    if (resultAudioParams->bytes_per_sec <= 0 || resultAudioParams->frame_size <= 0) {
+        av_log(NULL, AV_LOG_ERROR, "av_samples_get_buffer_size failed\n");
+        return -1;
+    }
+    
+    return 0;
+}
 
+
+int obtainOneAudioBuffer(TFVideoState *videoState){
+    bool finished = false;
+    TFFrame *compositeFrame = NULL;
+    while (compositeFrame == NULL) {
+        compositeFrame = frameQueueGet(&videoState->audioFrameQueue, &finished);
+        if (finished) {
+            return -1;
+        }
+    }
+    
+    AVFrame *frame = compositeFrame->frame;
+    if (frame->channel_layout != videoState->sourceAudioParams.channel_layout
+        || frame->nb_samples != videoState->sourceAudioParams.channels
+        || frame->sample_rate != videoState->sourceAudioParams.freq) {
+        
+    }
+}
+
+int fill_audio_buffer(uint8_t *buffer, int len, void *data){
+    TFLivePlayer *player = data;
+    TFVideoState *videoState = player->videoState;
+    
+    while (len > 0) {
+        if (videoState->audioBufferIndex >= videoState->audioBufferSize) {
+            int bufferSize = obtainOneAudioBuffer(videoState);
+            if (bufferSize <= 0) {
+                videoState->audioBuffer = NULL;
+                videoState->audioBufferSize = SDL_AUDIO_MIN_BUFFER_SIZE ;
+                //  (/ videoState->targetAudioParams.frame_size * videoState->targetAudioParams.frame_size;)这一段是？
+                
+            }else{
+                videoState->audioBufferSize = bufferSize;
+            }
+            videoState->audioBufferIndex = 0;
+        }
+        
+        
+        int copyLen = videoState->audioBufferSize - videoState->audioBufferIndex;
+        if (copyLen > len) {
+            copyLen = len;
+        }
+        
+        memcpy(buffer, (uint8_t*)videoState->audioBuffer + videoState->audioBufferIndex, copyLen);
+        
+        len -= copyLen;
+        buffer += copyLen;
+        videoState->audioBufferIndex += copyLen;
+    }
+    
+    
+    return 0;
+}
 
 
 

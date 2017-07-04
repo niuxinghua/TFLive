@@ -13,6 +13,8 @@
 #import "avformat.h"
 #include "TFFFplayer.h"
 #import <UIKit/UIKit.h>
+#import "TFVideoDisplayer_ios.h"
+#import "TFAudioDisplayer_ios.h"
 
 @interface TFLivePlayController (){
     
@@ -52,7 +54,8 @@
     
     player->videoState = videsState;
     
-    player->dispalyer = frameDisplayCreate((__bridge void *)(_playView));
+    player->videoDispalyer = VideoDisplayCreate((__bridge void *)(_playView));
+    player->audioDisplayer = createAudioDisplayer();
     
     //ffmpeg global init
     avcodec_register_all();
@@ -80,6 +83,8 @@
     videsState->videoPktQueue.abortRequest = true;
     videsState->videoFrameQueue.abortRequest = true;
     
+    videsState->audioPktQueue.abortRequest = true;
+    videsState->audioFrameQueue.abortRequest = true;
     
     NSLog(@"cancel frameReadThread");
     

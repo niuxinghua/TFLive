@@ -14,6 +14,9 @@
 		899BC6CE1F0682630061F6A8 /* libavutil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C81F0682630061F6A8 /* libavutil.a */; };
 		899BC6CF1F0682630061F6A8 /* libswresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C91F0682630061F6A8 /* libswresample.a */; };
 		899BC6D01F0682630061F6A8 /* libswscale.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6CA1F0682630061F6A8 /* libswscale.a */; };
+		DF0832721F0B232E00129DEA /* TFAudioQueueController.m in Sources */ = {isa = PBXBuildFile; fileRef = DF0832711F0B232E00129DEA /* TFAudioQueueController.m */; };
+		DF0832781F0B6C2A00129DEA /* TFVideoDisplayer_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = DF0832761F0B6C2A00129DEA /* TFVideoDisplayer_ios.m */; };
+		DF08327D1F0B746800129DEA /* TFAudioDisplayer_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = DF08327B1F0B746800129DEA /* TFAudioDisplayer_ios.m */; };
 		DFEFF5131F0499C1000043EE /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = DFEFF5121F0499C1000043EE /* libz.tbd */; };
 		DFEFF5151F050821000043EE /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DFEFF5141F050820000043EE /* AVFoundation.framework */; };
 		DFEFF5171F050829000043EE /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DFEFF5161F050829000043EE /* CoreGraphics.framework */; };
@@ -38,7 +41,6 @@
 		DFFAF7C01F034A0200AB4332 /* TFMoviePlayViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFAF7BF1F034A0200AB4332 /* TFMoviePlayViewController.m */; };
 		DFFAF7C21F03578300AB4332 /* TFThreadConvience.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */; };
 		DFFD536F1F0623830000AFAB /* TFFFplayer.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFD536D1F0623830000AFAB /* TFFFplayer.m */; };
-		DFFD53711F06434C0000AFAB /* TFDisplay.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFD53701F06434C0000AFAB /* TFDisplay.m */; };
 		DFFD53751F064D960000AFAB /* TFDisplayView.m in Sources */ = {isa = PBXBuildFile; fileRef = DFFD53741F064D960000AFAB /* TFDisplayView.m */; };
 /* End PBXBuildFile section */
 
@@ -52,6 +54,12 @@
 		899BC6C91F0682630061F6A8 /* libswresample.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswresample.a; path = ../ffmpeg_libs/lib/libswresample.a; sourceTree = "<group>"; };
 		899BC6CA1F0682630061F6A8 /* libswscale.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswscale.a; path = ../ffmpeg_libs/lib/libswscale.a; sourceTree = "<group>"; };
 		AE4F4018B0B890C1201AB34D /* libPods-TFLive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TFLive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF0832701F0B232E00129DEA /* TFAudioQueueController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFAudioQueueController.h; sourceTree = "<group>"; };
+		DF0832711F0B232E00129DEA /* TFAudioQueueController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFAudioQueueController.m; sourceTree = "<group>"; };
+		DF0832761F0B6C2A00129DEA /* TFVideoDisplayer_ios.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFVideoDisplayer_ios.m; sourceTree = "<group>"; };
+		DF0832771F0B6C2A00129DEA /* TFVideoDisplayer_ios.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFVideoDisplayer_ios.h; sourceTree = "<group>"; };
+		DF08327B1F0B746800129DEA /* TFAudioDisplayer_ios.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFAudioDisplayer_ios.m; sourceTree = "<group>"; };
+		DF08327C1F0B746800129DEA /* TFAudioDisplayer_ios.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFAudioDisplayer_ios.h; sourceTree = "<group>"; };
 		DFEFF5121F0499C1000043EE /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		DFEFF5141F050820000043EE /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		DFEFF5161F050829000043EE /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
@@ -84,8 +92,7 @@
 		DFFAF7C31F03579A00AB4332 /* TFThreadConvience.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TFThreadConvience.h; sourceTree = "<group>"; };
 		DFFD536D1F0623830000AFAB /* TFFFplayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFFFplayer.m; sourceTree = "<group>"; };
 		DFFD536E1F0623830000AFAB /* TFFFplayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFFFplayer.h; sourceTree = "<group>"; };
-		DFFD53701F06434C0000AFAB /* TFDisplay.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFDisplay.m; sourceTree = "<group>"; };
-		DFFD53721F06435D0000AFAB /* TFDisplay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TFDisplay.h; sourceTree = "<group>"; };
+		DFFD53721F06435D0000AFAB /* TFDisplayDefinition.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TFDisplayDefinition.h; sourceTree = "<group>"; };
 		DFFD53731F064D960000AFAB /* TFDisplayView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFDisplayView.h; sourceTree = "<group>"; };
 		DFFD53741F064D960000AFAB /* TFDisplayView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFDisplayView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -159,6 +166,35 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		DF0832791F0B6CAF00129DEA /* base */ = {
+			isa = PBXGroup;
+			children = (
+				DFFAF7C31F03579A00AB4332 /* TFThreadConvience.h */,
+				DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */,
+				DFFD536E1F0623830000AFAB /* TFFFplayer.h */,
+				DFFD536D1F0623830000AFAB /* TFFFplayer.m */,
+				DFFD53721F06435D0000AFAB /* TFDisplayDefinition.h */,
+			);
+			name = base;
+			sourceTree = "<group>";
+		};
+		DF08327A1F0B6CD600129DEA /* ios_special */ = {
+			isa = PBXGroup;
+			children = (
+				DFFAF7BB1F0348B700AB4332 /* TFLivePlayController.h */,
+				DFFAF7BC1F0348B700AB4332 /* TFLivePlayController.m */,
+				DF0832761F0B6C2A00129DEA /* TFVideoDisplayer_ios.m */,
+				DF0832771F0B6C2A00129DEA /* TFVideoDisplayer_ios.h */,
+				DFFD53731F064D960000AFAB /* TFDisplayView.h */,
+				DFFD53741F064D960000AFAB /* TFDisplayView.m */,
+				DF08327B1F0B746800129DEA /* TFAudioDisplayer_ios.m */,
+				DF08327C1F0B746800129DEA /* TFAudioDisplayer_ios.h */,
+				DF0832701F0B232E00129DEA /* TFAudioQueueController.h */,
+				DF0832711F0B232E00129DEA /* TFAudioQueueController.m */,
+			);
+			name = ios_special;
+			sourceTree = "<group>";
+		};
 		DFFAF6FE1F03472D00AB4332 = {
 			isa = PBXGroup;
 			children = (
@@ -180,6 +216,8 @@
 		DFFAF7091F03472D00AB4332 /* TFLive */ = {
 			isa = PBXGroup;
 			children = (
+				DF0832791F0B6CAF00129DEA /* base */,
+				DF08327A1F0B6CD600129DEA /* ios_special */,
 				DFFAF70D1F03472D00AB4332 /* AppDelegate.h */,
 				DFFAF70E1F03472D00AB4332 /* AppDelegate.m */,
 				DFFAF7101F03472D00AB4332 /* ViewController.h */,
@@ -191,16 +229,6 @@
 				DFFAF7181F03472D00AB4332 /* LaunchScreen.storyboard */,
 				DFFAF71B1F03472D00AB4332 /* Info.plist */,
 				DFFAF70A1F03472D00AB4332 /* Supporting Files */,
-				DFFAF7BB1F0348B700AB4332 /* TFLivePlayController.h */,
-				DFFAF7BC1F0348B700AB4332 /* TFLivePlayController.m */,
-				DFFAF7C31F03579A00AB4332 /* TFThreadConvience.h */,
-				DFFAF7C11F03578300AB4332 /* TFThreadConvience.m */,
-				DFFD536E1F0623830000AFAB /* TFFFplayer.h */,
-				DFFD536D1F0623830000AFAB /* TFFFplayer.m */,
-				DFFD53721F06435D0000AFAB /* TFDisplay.h */,
-				DFFD53701F06434C0000AFAB /* TFDisplay.m */,
-				DFFD53731F064D960000AFAB /* TFDisplayView.h */,
-				DFFD53741F064D960000AFAB /* TFDisplayView.m */,
 			);
 			path = TFLive;
 			sourceTree = "<group>";
@@ -341,10 +369,12 @@
 				DFFAF7BD1F0348B700AB4332 /* TFLivePlayController.m in Sources */,
 				DFFAF70F1F03472D00AB4332 /* AppDelegate.m in Sources */,
 				DFFAF7C21F03578300AB4332 /* TFThreadConvience.m in Sources */,
+				DF08327D1F0B746800129DEA /* TFAudioDisplayer_ios.m in Sources */,
 				DFFAF70C1F03472D00AB4332 /* main.m in Sources */,
-				DFFD53711F06434C0000AFAB /* TFDisplay.m in Sources */,
+				DF0832721F0B232E00129DEA /* TFAudioQueueController.m in Sources */,
 				DFFD536F1F0623830000AFAB /* TFFFplayer.m in Sources */,
 				DFFD53751F064D960000AFAB /* TFDisplayView.m in Sources */,
+				DF0832781F0B6C2A00129DEA /* TFVideoDisplayer_ios.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
