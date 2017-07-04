@@ -393,7 +393,7 @@ int videoFrameRead(void *data){
             printf("%d\n",frame->pict_type);
         }
 
-        frameQueuePut(player->videoDispalyer, &videoState->videoFrameQueue, frame);
+        frameQueuePut(&videoState->videoFrameQueue, frame, player->videoDispalyer);
     }
     
     if (videoState->abortRequest) {
@@ -423,28 +423,43 @@ int audioFrameRead(void *data){
     
     AVFrame *frame = av_frame_alloc();
     
+    //上次读取的packet,因为音频一个packet可能有多个frame，所以保留上次读取的packet，如果还有frame，继续读取这个frame
+    AVPacket *pkt = NULL;
+    int hasMoreFrame = true;
+    
     bool finished = false;
     while (!finished && !videoState->abortRequest) {
-        AVPacket *pkt = packetQueueGet(&videoState->audioPktQueue, &finished);
         
-        int retval = avcodec_send_packet(videoState->audioFrameDecoder->codexCtx, pkt);
-        if (retval != 0) {
-            printf("send audio packet error: %d",retval);
-            continue;
-        }
-        while (1) {
+        int gotFrame = false;
+        
+        while (!gotFrame) {
             
-            retval = avcodec_receive_frame(videoState->audioFrameDecoder->codexCtx, frame);
-            if (retval != 0) {
-                break;
+            //如果这一个packet已经没有更多frame读取，就换下一个frame
+            if (!hasMoreFrame) {
+                pkt = packetQueueGet(&videoState->audioPktQueue, &finished);
             }
             
-            frameQueuePut(&videoState->audioFrameQueue, frame, NULL);
             
+            if (pkt == NULL) {
+                hasMoreFrame = false;
+                continue;
+            }
+            
+            int retval = avcodec_decode_audio4(videoState->audioFrameDecoder->codexCtx, frame, &gotFrame, pkt);
+            if (retval < 0) {
+                hasMoreFrame = false;
+            }else{
+                //读取了retval长度的数据后，把data指针后移，并且size减去相应大小，如果小于0，说明没有更多frame要读取了
+                pkt->data += retval;
+                pkt->size -= retval;
+                if (pkt->size <= 0) {
+                    hasMoreFrame = false;
+                }
+            }
         }
         
+        frameQueuePut(&videoState->audioFrameQueue, frame, NULL);
     }
-    
     return 0;
 }
 
@@ -714,7 +729,7 @@ int audioOpen(TFLivePlayer *player, int64_t wanted_channel_layout, int wanted_nb
     wanted_spec.fillBufferfunc = fill_audio_buffer;
     wanted_spec.callbackData = player;
     if (audioDisplayer->openAudio(audioDisplayer, &wanted_spec, &spec) < 0) {
-        printf("can't find feasiable audio specifics");
+        printf("can't find feasiable audio specifics\n");
         return -1;
     }
     
@@ -744,11 +759,68 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
     }
     
     AVFrame *frame = compositeFrame->frame;
-    if (frame->channel_layout != videoState->sourceAudioParams.channel_layout
-        || frame->nb_samples != videoState->sourceAudioParams.channels
-        || frame->sample_rate != videoState->sourceAudioParams.freq) {
+    int64_t dec_channel_layout =
+    (frame->channel_layout && av_frame_get_channels(frame) == av_get_channel_layout_nb_channels(frame->channel_layout)) ?
+    frame->channel_layout : av_get_default_channel_layout(av_frame_get_channels(frame));
+    int wanted_nb_samples = frame->nb_samples;//synchronize_audio(videoState, frame->nb_samples);
+    
+    int bufferSize = av_samples_get_buffer_size(NULL, frame->channels, frame->nb_samples, frame->format, 1);
+    
+    if (dec_channel_layout != videoState->sourceAudioParams.channel_layout
+        || frame->format != videoState->sourceAudioParams.fmt
+        || frame->sample_rate != videoState->sourceAudioParams.freq
+        || (wanted_nb_samples != frame->nb_samples && !videoState->swrCtx)) {
         
+       videoState->swrCtx = swr_alloc_set_opts(NULL, videoState->targetAudioParams.channel_layout, videoState->targetAudioParams.fmt, videoState->targetAudioParams.freq, frame->channel_layout, frame->format, frame->sample_rate, 0, NULL);
+        
+        if (swr_init(videoState->swrCtx) < 0) {
+            printf("init swrContext error");
+            return -1;
+        }
+        
+        videoState->sourceAudioParams.fmt = frame->format;
+        videoState->sourceAudioParams.freq = frame->sample_rate;
+        videoState->sourceAudioParams.channel_layout = dec_channel_layout;
+        videoState->sourceAudioParams.channels = av_get_channel_layout_nb_channels(dec_channel_layout);
     }
+    
+    
+    
+    if (videoState->swrCtx) {
+        
+        uint8_t **out = &videoState->audioBuffer;
+        int out_count = (int)((int64_t)wanted_nb_samples * videoState->targetAudioParams.freq / frame->sample_rate + 256);
+        int out_size = av_samples_get_buffer_size(NULL, videoState->targetAudioParams.channels, out_count, videoState->targetAudioParams.fmt, 0);
+        
+        if (wanted_nb_samples != frame->nb_samples) {
+            //swr_set_compensation
+        }
+        
+        unsigned int mallocSize = 0;
+        av_fast_malloc(videoState->audioBuffer, &mallocSize, out_size);
+        if (mallocSize == 0) {
+            printf("malloc videostate buffer error\n");
+            return -1;
+        }
+        
+        int realOutCount = swr_convert(videoState->swrCtx, out, out_count, (const uint8_t**)frame->extended_data, frame->nb_samples);
+        if (realOutCount < 0) {
+            printf("swr_convert failed\n");
+            return -1;
+        }
+        if (realOutCount == out_count) {
+            printf("audio buffer maybe too small\n");
+            return -1;
+        }
+        
+        int bytesPerSample = av_get_bytes_per_sample(videoState->targetAudioParams.fmt);
+        bufferSize = realOutCount * videoState->targetAudioParams.channels * bytesPerSample;
+        
+    }else{
+        videoState->audioBuffer = frame->extended_data[0];
+    }
+    
+    return bufferSize;
 }
 
 int fill_audio_buffer(uint8_t *buffer, int len, void *data){
