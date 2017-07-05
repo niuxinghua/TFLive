@@ -56,6 +56,8 @@ typedef struct TFPacketQueue{
 
 typedef struct TFFrame{
     AVFrame *frame;
+    double pts;
+    double duration;
     TFOverlay *bitmap;
 }TFFrame;
 
@@ -63,6 +65,7 @@ typedef struct TFFrameNode{
     TFFrame *frame;
     struct TFFrameNode *pre;
     struct TFFrameNode *next;
+    int index;
 }TFFrameNode;
 
 typedef TFFrame *(*TFFrameConvertFunc)(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
@@ -115,10 +118,11 @@ typedef struct TFVideoState{
     SwrContext *swrCtx;
     
     uint8_t *audioBuffer;           //最新一次读取到的音频数据
-    int audioBufferSize;        //audioBuffer的大小
-    int audioBufferIndex;       //audioBuffer可能被读取了一部分，然后下一次还需要接着读下去，这个变量就是用来记录上次读取位置的
+    unsigned int audioBufferSize;        //audioBuffer的大小
+    unsigned int audioBufferIndex;       //audioBuffer可能被读取了一部分，然后下一次还需要接着读下去，这个变量就是用来记录上次读取位置的
     
-    int64_t frameTimer;
+    double frameTimer;
+    double lastPts;
     
     //controls
     bool abortRequest;
@@ -155,5 +159,8 @@ int audioFrameRead(void *data);
 TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx);
 
 int fill_audio_buffer(uint8_t *buffer, int len, void *data);
+
+
+void closePlayer(TFLivePlayer *player);
 
 #endif /* TFFFplayer_h */

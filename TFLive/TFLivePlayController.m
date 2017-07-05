@@ -74,17 +74,7 @@
 
 -(void)stop{
     
-    TFVideoState *videsState = player->videoState;
-    
-    videsState->abortRequest = true;
-    
-    NSLog(@"abort requested");
-    
-    videsState->videoPktQueue.abortRequest = true;
-    videsState->videoFrameQueue.abortRequest = true;
-    
-    videsState->audioPktQueue.abortRequest = true;
-    videsState->audioFrameQueue.abortRequest = true;
+    closePlayer(player);
     
     NSLog(@"cancel frameReadThread");
     

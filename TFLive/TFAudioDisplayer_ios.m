@@ -10,16 +10,21 @@
 #import "TFAudioQueueController.h"
 
 int openAudio(TFAudioDisplayer *audioDisplayer, TFAudioSpecifics *wantedAudioSpec, TFAudioSpecifics *feasiableSpec);
+int closeAudio(TFAudioDisplayer *audioDisplayer);
+int bufferCallbackTimesPerSecond(TFAudioDisplayer *audioDisplayer);
 
 TFAudioDisplayer *createAudioDisplayer(){
     TFAudioDisplayer *audioDisplayer = malloc(sizeof(TFAudioDisplayer));
     memset(audioDisplayer, 0, sizeof(TFAudioDisplayer));
     
     audioDisplayer->openAudio = openAudio;
+    audioDisplayer->closeAudio = closeAudio;
+    audioDisplayer->bufferCallbackTimesPerSecond = bufferCallbackTimesPerSecond;
     
     return audioDisplayer;
 }
 
+TFAudioQueueController *strongAQController = nil;
 int openAudio(TFAudioDisplayer *audioDisplayer, TFAudioSpecifics *wantedAudioSpec, TFAudioSpecifics *feasiableSpec){
     TFAudioQueueController *AQController = [[TFAudioQueueController alloc] initWithSpecifics:wantedAudioSpec];
     
@@ -30,6 +35,22 @@ int openAudio(TFAudioDisplayer *audioDisplayer, TFAudioSpecifics *wantedAudioSpe
     }
     
     *feasiableSpec = AQController.specifics;
+    
+    strongAQController = AQController;
+    
+    return 0;
+}
+
+int bufferCallbackTimesPerSecond(TFAudioDisplayer *audioDisplayer){
+    return 15;
+}
+
+int closeAudio(TFAudioDisplayer *audioDisplayer){
+    
+    TFAudioQueueController *AQController = (__bridge TFAudioQueueController *)(audioDisplayer->audioQueue);
+    [AQController stop];
+    
+    strongAQController = nil;
     
     return 0;
 }

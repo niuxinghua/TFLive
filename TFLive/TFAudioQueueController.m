@@ -30,8 +30,22 @@
     if (self = [super init]) {
         _specifics = *specifics;
         
+        if (_specifics.format != AUDIO_S16) {
+            printf("specifics's format is not signed-16-bits\n");
+            self = nil;
+            return nil;
+        }
+        if (_specifics.channels > 2) {
+            NSLog(@"aout_open_audio: unsupported channels %d\n", (int)_specifics.channels);
+            return nil;
+        }
+        
         AudioStreamBasicDescription audioDesc;
         configAudioDescWithSpecifics(&audioDesc, &_specifics);
+        
+        _specifics.bufferSize = SDL_AUDIO_BITSIZE(_specifics.format) / 8 * _specifics.channels * _specifics.samples;
+        
+        
         AudioQueueNewOutput(&audioDesc, TFAudioQueueHasEmptyBufferCallBack, (__bridge void*)self, NULL, (__bridge CFStringRef)NSRunLoopCommonModes, 0, &(_audioQueue));
         
         OSStatus status = AudioQueueStart(_audioQueue, NULL);
@@ -65,8 +79,13 @@ static void configAudioDescWithSpecifics(AudioStreamBasicDescription *audioDesc,
     audioDesc->mFramesPerPacket = 1;
     audioDesc->mChannelsPerFrame = specifics->channels;
     
-    //TODO: format
-    audioDesc->mBitsPerChannel = 0xff;
+    audioDesc->mBitsPerChannel = SDL_AUDIO_BITSIZE(specifics->format);
+    if (SDL_AUDIO_ISBIGENDIAN(specifics->format))
+        audioDesc->mFormatFlags |= kLinearPCMFormatFlagIsBigEndian;
+    if (SDL_AUDIO_ISFLOAT(specifics->format))
+        audioDesc->mFormatFlags |= kLinearPCMFormatFlagIsFloat;
+    if (SDL_AUDIO_ISSIGNED(specifics->format))
+        audioDesc->mFormatFlags |= kLinearPCMFormatFlagIsSignedInteger;
     
     audioDesc->mBytesPerFrame = audioDesc->mBitsPerChannel * audioDesc->mChannelsPerFrame / 8;
     audioDesc->mBytesPerPacket = audioDesc->mBytesPerFrame * audioDesc->mFramesPerPacket;
@@ -155,6 +174,10 @@ static void TFAudioQueueHasEmptyBufferCallBack(void *inUserData, AudioQueueRef i
         
         AudioQueueEnqueueBuffer(inAQ, inBuffer, 0, NULL);
     }
+}
+
+-(void)dealloc{
+    NSLog(@"AUDIO QUEUE DEALLOCED");
 }
 
 @end

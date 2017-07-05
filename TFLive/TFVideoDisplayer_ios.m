@@ -9,6 +9,7 @@
 #include "TFVideoDisplayer_ios.h"
 #import "TFDisplayView.h"
 
+
 int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
     overlay->width = frame->width;
     overlay->height = frame->height;
@@ -18,6 +19,7 @@ int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
         overlay->linesize[i] = frame->linesize[i];
     }
     overlay->format = frame->format;
+    overlay->identifier = (uint64_t)frame->data[0];
     
     return 0;
 }
