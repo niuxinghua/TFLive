@@ -59,6 +59,10 @@ typedef struct TFFrame{
     double pts;
     double duration;
     TFOverlay *bitmap;
+#if DEBUG
+    uint64_t identifier;
+#endif
+    
 }TFFrame;
 
 typedef struct TFFrameNode{

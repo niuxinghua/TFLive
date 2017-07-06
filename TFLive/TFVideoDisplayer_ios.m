@@ -8,7 +8,7 @@
 
 #include "TFVideoDisplayer_ios.h"
 #import "TFDisplayView.h"
-
+#import "time.h"
 
 int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
     overlay->width = frame->width;
@@ -19,13 +19,18 @@ int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
         overlay->linesize[i] = frame->linesize[i];
     }
     overlay->format = frame->format;
-    overlay->identifier = (uint64_t)frame->data[0];
+    
+    
+    
     
     return 0;
 }
 
 TFOverlay *voutOverlayCreate(){
     TFOverlay *overlay = av_mallocz(sizeof(TFOverlay));
+#if DEBUG
+    overlay->identifier = av_gettime_relative();
+#endif
     overlay->fillVideoFrameFunc = fillVideoFrameFunc;
     
     return overlay;

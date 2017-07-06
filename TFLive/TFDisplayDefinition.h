@@ -28,7 +28,9 @@ struct TFOverlay {
     UInt8 *pixels[AV_NUM_DATA_POINTERS];
     UInt16 linesize[AV_NUM_DATA_POINTERS];
     
+#if DEBUG
     uint64_t identifier;
+#endif
     
     int (*fillVideoFrameFunc)(TFOverlay *overlay, const AVFrame *frame);
 };
