@@ -130,6 +130,9 @@ typedef struct TFAudioSpecifics{
 struct TFAudioDisplayer {
     void *audioQueue;
     
+    int audioBufferCount;
+    uint32_t unplayerBufferSize;
+    
     int (*openAudio)(TFAudioDisplayer *audioDisplayer, TFAudioSpecifics *wantedAudioSpec, TFAudioSpecifics *feasiableSpec);
     int (*closeAudio)(TFAudioDisplayer *audioDisplayer);
     

@@ -14,6 +14,7 @@
 		899BC6CE1F0682630061F6A8 /* libavutil.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C81F0682630061F6A8 /* libavutil.a */; };
 		899BC6CF1F0682630061F6A8 /* libswresample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C91F0682630061F6A8 /* libswresample.a */; };
 		899BC6D01F0682630061F6A8 /* libswscale.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6CA1F0682630061F6A8 /* libswscale.a */; };
+		89E148911F10F6EE00DEF833 /* TFSyncClock.c in Sources */ = {isa = PBXBuildFile; fileRef = 89E1488F1F10F6EE00DEF833 /* TFSyncClock.c */; };
 		DF0832721F0B232E00129DEA /* TFAudioQueueController.m in Sources */ = {isa = PBXBuildFile; fileRef = DF0832711F0B232E00129DEA /* TFAudioQueueController.m */; };
 		DF0832781F0B6C2A00129DEA /* TFVideoDisplayer_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = DF0832761F0B6C2A00129DEA /* TFVideoDisplayer_ios.m */; };
 		DF08327D1F0B746800129DEA /* TFAudioDisplayer_ios.m in Sources */ = {isa = PBXBuildFile; fileRef = DF08327B1F0B746800129DEA /* TFAudioDisplayer_ios.m */; };
@@ -53,6 +54,8 @@
 		899BC6C81F0682630061F6A8 /* libavutil.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavutil.a; path = ../ffmpeg_libs/lib/libavutil.a; sourceTree = "<group>"; };
 		899BC6C91F0682630061F6A8 /* libswresample.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswresample.a; path = ../ffmpeg_libs/lib/libswresample.a; sourceTree = "<group>"; };
 		899BC6CA1F0682630061F6A8 /* libswscale.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswscale.a; path = ../ffmpeg_libs/lib/libswscale.a; sourceTree = "<group>"; };
+		89E1488F1F10F6EE00DEF833 /* TFSyncClock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = TFSyncClock.c; sourceTree = "<group>"; };
+		89E148901F10F6EE00DEF833 /* TFSyncClock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFSyncClock.h; sourceTree = "<group>"; };
 		AE4F4018B0B890C1201AB34D /* libPods-TFLive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TFLive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF0832701F0B232E00129DEA /* TFAudioQueueController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFAudioQueueController.h; sourceTree = "<group>"; };
 		DF0832711F0B232E00129DEA /* TFAudioQueueController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TFAudioQueueController.m; sourceTree = "<group>"; };
@@ -174,6 +177,8 @@
 				DFFD536E1F0623830000AFAB /* TFFFplayer.h */,
 				DFFD536D1F0623830000AFAB /* TFFFplayer.m */,
 				DFFD53721F06435D0000AFAB /* TFDisplayDefinition.h */,
+				89E1488F1F10F6EE00DEF833 /* TFSyncClock.c */,
+				89E148901F10F6EE00DEF833 /* TFSyncClock.h */,
 			);
 			name = base;
 			sourceTree = "<group>";
@@ -373,6 +378,7 @@
 				DFFAF70C1F03472D00AB4332 /* main.m in Sources */,
 				DF0832721F0B232E00129DEA /* TFAudioQueueController.m in Sources */,
 				DFFD536F1F0623830000AFAB /* TFFFplayer.m in Sources */,
+				89E148911F10F6EE00DEF833 /* TFSyncClock.c in Sources */,
 				DFFD53751F064D960000AFAB /* TFDisplayView.m in Sources */,
 				DF0832781F0B6C2A00129DEA /* TFVideoDisplayer_ios.m in Sources */,
 			);

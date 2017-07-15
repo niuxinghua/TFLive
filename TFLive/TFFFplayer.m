@@ -392,7 +392,7 @@ int videoFrameRead(void *data){
                 continue;
             }
             
-            if (pkt.data) {
+            if (pkt.size) {
                 av_packet_unref(&pkt);
             }
             
@@ -746,9 +746,7 @@ int startDisplayFrames(void *data){
             continue;
         }
         
-        double delay = frame->pts - videoState->lastPts;
-        double time = av_gettime_relative() / 1000000.0;
-        double remainTime = videoState->frameTimer + delay - time;
+        double remainTime = nextVideoTime(videoState, frame->pts) - av_gettime_relative() / 1000000.0;
         
         if (frame->pts < curPts) {
             printf("find early frame\n");
@@ -904,7 +902,9 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
         
     }else{
         videoState->audioBuffer = frame->extended_data[0];
+        
     }
+    videoState->audioPts = frame->pts * av_q2d(videoState->audioStream->time_base);
     
     return bufferSize;
 }
@@ -912,10 +912,15 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
 int fill_audio_buffer(uint8_t *buffer, int len, void *data){
     TFLivePlayer *player = data;
     TFVideoState *videoState = player->videoState;
+    TFAudioDisplayer *audioDisplayer = player->audioDisplayer;
     
     if (videoState->abortRequest) {
         return -1;
     }
+    
+    
+    double playDelay = (double)(audioDisplayer->unplayerBufferSize + (videoState->audioBufferSize - videoState->audioBufferIndex)) / videoState->targetAudioParams.bytes_per_sec;
+//    printf("playdelay: %.6f",playDelay);
     
     while (len > 0) {
         if (videoState->audioBufferIndex >= videoState->audioBufferSize) {
@@ -927,6 +932,8 @@ int fill_audio_buffer(uint8_t *buffer, int len, void *data){
                 
             }else{
                 videoState->audioBufferSize = bufferSize;
+                videoState->audioClock.ptsRealTimeDiff = av_gettime_relative()/1000000.0 + playDelay - videoState->audioPts;
+                printf("ptsRealTimeDiff: %.6f\n",videoState->audioClock.ptsRealTimeDiff);
             }
             videoState->audioBufferIndex = 0;
         }
@@ -948,8 +955,20 @@ int fill_audio_buffer(uint8_t *buffer, int len, void *data){
         videoState->audioBufferIndex += copyLen;
     }
     
-    
     return 0;
+}
+
+#pragma mark - sync clock
+
+double nextVideoTime(TFVideoState *videoState, double nextPts){
+    
+    double duration = nextPts - videoState->lastPts;
+    
+    if (videoState->masterClockType == TFSyncClockTypeAudio) {
+        return nextVideoTimeAdjustByClock(&videoState->audioClock, nextPts);
+    }
+    
+    return videoState->frameTimer + duration;
 }
 
 #pragma mark - close player
@@ -968,6 +987,8 @@ void closePlayer(TFLivePlayer *player){
     videsState->audioFrameQueue.abortRequest = true;
     
     player->audioDisplayer->closeAudio(player->audioDisplayer);
+    
+    
 }
 
 

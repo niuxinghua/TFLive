@@ -52,6 +52,11 @@
     videsState->filename = av_strdup([liveString UTF8String]);
     strcpy(videsState->identifier, [[[NSDate date] description] UTF8String]);
     
+    videsState->videoClock.type = TFSyncClockTypeVideo;
+    videsState->audioClock.type = TFSyncClockTypeAudio;
+    
+    videsState->masterClockType = TFSyncClockTypeVideo;
+    
     player->videoState = videsState;
     
     player->videoDispalyer = VideoDisplayCreate((__bridge void *)(_playView));

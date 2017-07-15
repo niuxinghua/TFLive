@@ -28,11 +28,13 @@ TFAudioQueueController *strongAQController = nil;
 int openAudio(TFAudioDisplayer *audioDisplayer, TFAudioSpecifics *wantedAudioSpec, TFAudioSpecifics *feasiableSpec){
     TFAudioQueueController *AQController = [[TFAudioQueueController alloc] initWithSpecifics:wantedAudioSpec];
     
-    audioDisplayer->audioQueue = (__bridge void *)(AQController);
-    
     if (!AQController) {
         return -1;
     }
+    
+    audioDisplayer->audioQueue = (__bridge void *)(AQController);
+    audioDisplayer->audioBufferCount = TFAudioQueueBufferCount;
+    audioDisplayer->unplayerBufferSize = (TFAudioQueueBufferCount-1)*AQController.specifics.bufferSize;
     
     *feasiableSpec = AQController.specifics;
     

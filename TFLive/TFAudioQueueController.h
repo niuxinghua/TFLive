@@ -10,6 +10,8 @@
 #import <AudioToolbox/AudioToolbox.h>
 #import "TFAudioDisplayer_ios.h"
 
+#define TFAudioQueueBufferCount     3
+
 @interface TFAudioQueueController : NSObject
 
 @property (nonatomic, assign) TFAudioSpecifics specifics;

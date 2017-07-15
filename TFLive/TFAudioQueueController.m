@@ -10,7 +10,7 @@
 #import <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
 
-#define TFAudioQueueBufferCount     3
+
 
 @interface TFAudioQueueController (){
     

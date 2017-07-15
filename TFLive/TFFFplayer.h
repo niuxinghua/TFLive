@@ -14,8 +14,9 @@
 #include "avcodec.h"
 #include "avformat.h"
 #include "swresample.h"
-#import <Foundation/Foundation.h>
+//#import <Foundation/Foundation.h>
 #include "TFDisplayDefinition.h"
+#include "TFSyncClock.h"
 
 #define kMaxAllocPacketNodeCount       50
 #define kMaxAllocFrameNodeCount       50
@@ -124,9 +125,17 @@ typedef struct TFVideoState{
     uint8_t *audioBuffer;           //最新一次读取到的音频数据
     unsigned int audioBufferSize;        //audioBuffer的大小
     unsigned int audioBufferIndex;       //audioBuffer可能被读取了一部分，然后下一次还需要接着读下去，这个变量就是用来记录上次读取位置的
+    double audioPts;
     
     double frameTimer;
     double lastPts;
+    
+    
+    //sync clock
+    TFSyncClock videoClock;
+    TFSyncClock audioClock;
+    
+    enum TFSyncClockType masterClockType;
     
     //controls
     bool abortRequest;
@@ -163,6 +172,10 @@ int audioFrameRead(void *data);
 TFFrameDecoder *frameDecoderInit(AVCodecContext *codecCtx);
 
 int fill_audio_buffer(uint8_t *buffer, int len, void *data);
+
+
+//sync clock
+double nextVideoTime(TFVideoState *videoState, double nextPts);
 
 
 void closePlayer(TFLivePlayer *player);
