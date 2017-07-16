@@ -40,6 +40,8 @@ int displayOverlay(TFVideoDisplayer *displayer, TFOverlay *overlay){
     TFDisplayView *dispalyView = (__bridge TFDisplayView *)(displayer->displayView);
     [dispalyView displayOverlay:overlay];
     
+    av_free(overlay);
+    
     return 0;
 }
 

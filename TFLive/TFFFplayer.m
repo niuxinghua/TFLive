@@ -38,6 +38,7 @@ void frameQueueDestory(TFFrameQueue *frameQueue);
 
 inline static TFFrame *TFVideoFrameFillOrAlloc(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
 inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
+inline static void TFFrameQueueFrameRelease(TFFrame **compositeFrameRef);
 
 int audioOpen(TFLivePlayer *player, int64_t wanted_channel_layout, int wanted_nb_channels, int wanted_sample_rate, AudioParams *resultAudioParams);
 
@@ -132,6 +133,7 @@ int decodeStream(TFLivePlayer *player, int streamIndex){
         packetQueueInit(&videoState->videoPktQueue, "视频packet");
         frameQueueInit(&videoState->videoFrameQueue, "视频frame");
         videoState->videoFrameQueue.convertFunc = TFVideoFrameFillOrAlloc;
+        videoState->videoFrameQueue.releaseFunc = TFFrameQueueFrameRelease;
         
         //init decoder
         videoState->videoFrameDecoder = frameDecoderInit(codecCtx);
@@ -145,6 +147,7 @@ int decodeStream(TFLivePlayer *player, int streamIndex){
         packetQueueInit(&videoState->audioPktQueue, "音频packet");
         frameQueueInit(&videoState->audioFrameQueue, "音频frame");
         videoState->audioFrameQueue.convertFunc = TFAudioFrameConvert;
+        videoState->audioFrameQueue.releaseFunc = TFFrameQueueFrameRelease;
         
         //audio open
         audioOpen(player, codecCtx->channel_layout, codecCtx->channels, codecCtx->sample_rate, &videoState->targetAudioParams);
@@ -392,7 +395,7 @@ int videoFrameRead(void *data){
                 continue;
             }
             
-            if (pkt.size) {
+            if (pkt.size && pkt.data) {
                 av_packet_unref(&pkt);
             }
             
@@ -635,7 +638,11 @@ void frameQueueUseOne(TFFrameQueue *frameQueue, bool *finished){
         return;
     }
     
-    frameQueue->usedFrameNodeLast->frame = NULL;
+    if (frameQueue->releaseFunc) {
+        frameQueue->releaseFunc(&frameQueue->usedFrameNodeLast->frame);
+    }else{
+        frameQueue->usedFrameNodeLast->frame = NULL;
+    }
     
     frameQueue->recycleCount ++;
     
@@ -659,9 +666,8 @@ void frameQueueDestory(TFFrameQueue *frameQueue){
     TFFrameNode *cur = first->pre;
     while (cur != NULL) {
         if (cur->frame) {
-            //av_frame_free(&cur->frame->frame);
             av_free(cur->frame->bitmap);
-            av_free(cur->frame);
+            av_frame_free(&cur->frame->frame);
         }
         
         if (cur == first) {
@@ -690,6 +696,8 @@ inline static TFFrame *TFVideoFrameFillOrAlloc(TFFrame *compositeFrame, AVFrame 
         compositeFrame->frame = av_frame_alloc();
     }
     //TODO: 在回收compositeFrame后，overlay又还没有显示的间隔里，可能会把overlay的内存去掉
+    AVFrame *frame;
+    frame = compositeFrame->frame;
     av_frame_unref(compositeFrame->frame);
     av_frame_ref(compositeFrame->frame, originalFrame);
     
@@ -725,6 +733,13 @@ inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *ori
     printf("id: %lld\n",compositeFrame->identifier);
     
     return compositeFrame;
+}
+
+inline static void TFFrameQueueFrameRelease(TFFrame **compositeFrameRef){
+    if ((*compositeFrameRef)->frame) {
+        av_frame_unref((*compositeFrameRef)->frame);
+    }
+    *compositeFrameRef = NULL;
 }
 
 #define maxFrameDuration    0.1

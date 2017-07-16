@@ -74,6 +74,7 @@ typedef struct TFFrameNode{
 }TFFrameNode;
 
 typedef TFFrame *(*TFFrameConvertFunc)(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
+typedef void (*TFFrameReleaseFunc)(TFFrame **compositeFrame);
 typedef struct TFFrameQueue{
     TFFrameNode *usedFrameNodeLast;
     TFFrameNode *recycleFrameNodeLast;
@@ -92,6 +93,8 @@ typedef struct TFFrameQueue{
     
     //用来处理AVFrame到包装数据结构TFFrame的转化，因为视频、音频帧的数据不同，但为了简便，使用共同的包装数据结构（TFFrame），所以需要在转化方法上做不同处理。
     TFFrameConvertFunc convertFunc;
+    //有构建函数，就有释放函数，彻底隔离处理逻辑
+    TFFrameReleaseFunc releaseFunc;
     
 }TFFrameQueue;
 
