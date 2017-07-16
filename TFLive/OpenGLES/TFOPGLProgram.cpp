@@ -20,6 +20,21 @@ TFOPGLProgram::TFOPGLProgram(std::string vertexShaderPath, std::string fragmentS
     attachShadersAndlinkProgram();
 }
 
+TFOPGLProgram::TFOPGLProgram(const char *vertexShaderSource, const char *fragmentShaderSource){
+    char *error = new char[TFInfoLogLen];
+    bool succeed = loadShaderWithSourceString(GL_VERTEX_SHADER, vertexShaderSource, &error);
+    if (!succeed) {
+        printf("%s\n",error);
+        return;
+    }
+    succeed = loadShaderWithSourceString(GL_FRAGMENT_SHADER, fragmentShaderSource, &error);
+    if (!succeed) {
+        printf("%s\n",error);
+        return;
+    }
+    attachShadersAndlinkProgram();
+}
+
 string readTxt(string file)
 {
     ifstream infile;
@@ -55,6 +70,10 @@ bool TFOPGLProgram::loadShaderWithPath(GLenum type, std::string path, char **err
     string sourceStr = readTxt(path);
     const GLchar *source = sourceStr.c_str();
     
+    return loadShaderWithSourceString(type, source, error);
+}
+
+bool TFOPGLProgram::loadShaderWithSourceString(GLenum type, const char *source, char **error){
     GLuint shader = glCreateShader(type);
     if (type == GL_VERTEX_SHADER) {
         _vertexShader = shader;
@@ -70,13 +89,15 @@ bool TFOPGLProgram::loadShaderWithPath(GLenum type, std::string path, char **err
     
 #if DEBUG
     if (succeed != GL_TRUE) {
-        glGetShaderInfoLog(shader, TFInfoLogLen, nullptr, *error);
-        glDeleteShader(shader);
-        
-        if (type == GL_VERTEX_SHADER) {
-            _vertexShader = TFUndefinedShader;
-        }else if (type == GL_FRAGMENT_SHADER){
-            _fragmentShader = TFUndefinedShader;
+        if (error) {
+            glGetShaderInfoLog(shader, TFInfoLogLen, nullptr, *error);
+            glDeleteShader(shader);
+            
+            if (type == GL_VERTEX_SHADER) {
+                _vertexShader = TFUndefinedShader;
+            }else if (type == GL_FRAGMENT_SHADER){
+                _fragmentShader = TFUndefinedShader;
+            }
         }
         
         return false;

@@ -49,6 +49,7 @@ class TFOPGLProgram{
 public:
     TFOPGLProgram(){};
     TFOPGLProgram(std::string vertexShaderPath, std::string fragmentShaderPath);
+    TFOPGLProgram(const char *vertexShaderSource, const char *fragmentShaderSource);
     
     bool loadFailed(){
         return _program == TFUndefinedProgram;
@@ -63,6 +64,8 @@ public:
      */
     bool loadShaderWithPath(GLenum type, std::string path, char **error);
     bool loadShaderWithPathAutoLog(GLenum type, std::string path);
+    
+    bool loadShaderWithSourceString(GLenum type, const char *source, char**error);
     
     bool attachShadersAndlinkProgram();
     
