@@ -8,13 +8,19 @@
 
 #import "TFLivePlayController.h"
 #import "TFThreadConvience.h"
-#import "mem.h"
-#import "avcodec.h"
-#import "avformat.h"
+#import <libavutil/mem.h>
+#import <libavcodec/avcodec.h>
+#import <libavformat/avformat.h>
 #include "TFFFplayer.h"
 #import <UIKit/UIKit.h>
 #import "TFVideoDisplayer_ios.h"
 #import "TFAudioDisplayer_ios.h"
+
+#if TFVIDEO_DISPLAYER_IOS_OPENGLES
+#import "TFOPGLESDisplayView.h"
+#else
+#import "TFImageDisplayView.h"
+#endif
 
 @interface TFLivePlayController (){
     
@@ -23,7 +29,11 @@
     TFSDL_thread readThread;
     TFSDL_thread displayThread;
     
-    
+#if TFVIDEO_DISPLAYER_IOS_OPENGLES
+    TFOPGLESDisplayView *_playView;
+#else
+    TFImageDisplayView *_playView;
+#endif
 }
 
 @end
@@ -69,8 +79,13 @@
 }
 
 -(void)playViewInit{
-    _playView = [[TFDisplayView alloc] initWithFrame:[UIScreen mainScreen].bounds];
+#if TFVIDEO_DISPLAYER_IOS_OPENGLES
+    _playView = [[TFOPGLESDisplayView alloc] initWithFrame:[UIScreen mainScreen].bounds];
     _playView.backgroundColor = [UIColor blackColor];
+#else
+    _playView = [[TFImageDisplayView alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    _playView.backgroundColor = [UIColor blackColor];
+#endif
 }
 
 -(void)prepareToPlay{

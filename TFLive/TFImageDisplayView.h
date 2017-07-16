@@ -1,5 +1,5 @@
 //
-//  TFDisplayView.h
+//  TFImageDisplayView.h
 //  TFLive
 //
 //  Created by wei shi on 2017/6/30.
@@ -9,7 +9,8 @@
 #import <UIKit/UIKit.h>
 #import "TFVideoDisplayer_ios.h"
 
-@interface TFDisplayView : UIView
+//Converting overlay(video frame buffer) to UIImage and displaying it on UIImageView.
+@interface TFImageDisplayView : UIView
 
 -(void)displayOverlay:(TFOverlay *)overlay;
 

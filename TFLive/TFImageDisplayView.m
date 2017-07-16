@@ -1,23 +1,23 @@
 //
-//  TFDisplayView.m
+//  TFImageDisplayView.m
 //  TFLive
 //
 //  Created by wei shi on 2017/6/30.
 //  Copyright © 2017年 wei shi. All rights reserved.
 //
 
-#import "TFDisplayView.h"
+#import "TFImageDisplayView.h"
 #import <CoreVideo/CoreVideo.h>
 
 
-@interface TFDisplayView (){
+@interface TFImageDisplayView (){
     UIImageView *_playImgView;
     CVPixelBufferPoolRef pixelBufferPool;
 }
 
 @end
 
-@implementation TFDisplayView
+@implementation TFImageDisplayView
 
 -(instancetype)initWithFrame:(CGRect)frame{
     if (self = [super initWithFrame:frame]) {

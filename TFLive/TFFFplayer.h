@@ -11,9 +11,9 @@
 
 #include <stdio.h>
 #include "TFThreadConvience.h"
-#include "avcodec.h"
-#include "avformat.h"
-#include "swresample.h"
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
 //#import <Foundation/Foundation.h>
 #include "TFDisplayDefinition.h"
 #include "TFSyncClock.h"

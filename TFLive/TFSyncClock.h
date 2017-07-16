@@ -10,7 +10,7 @@
 #define TFSyncClock_h
 
 #include <stdio.h>
-#include <avcodec.h>
+#include <libavcodec/avcodec.h>
 
 enum TFSyncClockType{
     TFSyncClockTypeAudio,

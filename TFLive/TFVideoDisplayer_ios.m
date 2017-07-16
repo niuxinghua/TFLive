@@ -7,8 +7,12 @@
 //
 
 #include "TFVideoDisplayer_ios.h"
-#import "TFDisplayView.h"
-#import "time.h"
+
+#if TFVIDEO_DISPLAYER_IOS_OPENGLES
+#import "TFOPGLESDisplayView.h"
+#else
+#import "TFImageDisplayView.h"
+#endif
 
 int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
     overlay->width = frame->width;
@@ -20,14 +24,11 @@ int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
     }
     overlay->format = frame->format;
     
-    
-    
-    
     return 0;
 }
 
 TFOverlay *voutOverlayCreate(){
-    TFOverlay *overlay = av_mallocz(sizeof(TFOverlay));
+    TFOverlay *overlay = (TFOverlay*)av_mallocz(sizeof(TFOverlay));
 #if DEBUG
     overlay->identifier = av_gettime_relative();
 #endif
@@ -37,17 +38,25 @@ TFOverlay *voutOverlayCreate(){
 }
 
 int displayOverlay(TFVideoDisplayer *displayer, TFOverlay *overlay){
-    TFDisplayView *dispalyView = (__bridge TFDisplayView *)(displayer->displayView);
-    [dispalyView displayOverlay:overlay];
     
-    av_free(overlay);
+    dispatch_async(dispatch_get_main_queue(), ^{
+#if TFVIDEO_DISPLAYER_IOS_OPENGLES
+        TFOPGLESDisplayView *displayView = (__bridge TFOPGLESDisplayView *)(displayer->displayView);
+        [displayView displayOverlay:overlay];
+#else
+        TFImageDisplayView *dispalyView = (__bridge TFImageDisplayView *)(displayer->displayView);
+        [dispalyView displayOverlay:overlay];
+#endif
+        
+        av_free(overlay);
+    });
     
     return 0;
 }
 
 
 TFVideoDisplayer *VideoDisplayCreate(void *displayView){
-    TFVideoDisplayer *display = av_mallocz(sizeof(TFVideoDisplayer));
+    TFVideoDisplayer *display = (TFVideoDisplayer*)av_mallocz(sizeof(TFVideoDisplayer));
     display->createOverlay = voutOverlayCreate;
     display->displayOverlay = displayOverlay;
     display->displayView = displayView;

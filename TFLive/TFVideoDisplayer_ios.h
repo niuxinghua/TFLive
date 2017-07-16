@@ -9,6 +9,8 @@
 #ifndef TFVideoDisplayer_ios_h
 #define TFVideoDisplayer_ios_h
 
+#define TFVIDEO_DISPLAYER_IOS_OPENGLES  1
+
 #include <stdio.h>
 #include "TFDisplayDefinition.h"
 

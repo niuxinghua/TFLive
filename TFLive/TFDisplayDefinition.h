@@ -10,7 +10,7 @@
 #define TFDisplay_h
 
 #import <Foundation/Foundation.h>
-#include "avcodec.h"
+#include <libavcodec/avcodec.h>
 
 /***** video display *****/
 
