@@ -473,7 +473,7 @@ int audioFrameRead(void *data){
             }
         }
         logBuffer(frame->extended_data[0], 0, 400, "insertaudio");
-        printf("id: %lld\n",av_gettime_relative());
+        //printf("id: %lld\n",av_gettime_relative());
         
         frameQueuePut(&videoState->audioFrameQueue, frame, NULL);
         av_frame_unref(frame);
@@ -730,7 +730,7 @@ inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *ori
     compositeFrame->identifier = av_gettime_relative();
 #endif
     logBuffer(compositeFrame->frame->extended_data[0], 0, 400, "convert");
-    printf("id: %lld\n",compositeFrame->identifier);
+    //printf("id: %lld\n",compositeFrame->identifier);
     
     return compositeFrame;
 }
@@ -756,12 +756,13 @@ int startDisplayFrames(void *data){
     while (!finished) {
         
         TFFrame *frame = frameQueueGet(&videoState->videoFrameQueue, &finished);
-        //sleep(1);
+        printf("framQueueCount: %d\n",videoState->videoFrameQueue.allocCount - videoState->videoFrameQueue.recycleCount);
         if (frame == NULL) {
             continue;
         }
         
         double remainTime = nextVideoTime(videoState, frame->pts) - av_gettime_relative() / 1000000.0;
+        //printf("pts:%.6f remain:%.6f | time:%.6f | diff:%.6f\n",frame->pts,remainTime,av_gettime_relative() / 1000000.0, videoState->audioClock.ptsRealTimeDiff);
         
         if (frame->pts < curPts) {
             printf("find early frame\n");
@@ -783,8 +784,10 @@ int startDisplayFrames(void *data){
         
         if (player->videoDispalyer->displayOverlay) {
             videoState->frameTimer = av_gettime_relative() / 1000000.0;
-            videoState->lastPts = frame->pts;
-            uint8_t *start = frame->bitmap->pixels[0];
+            double deltaTime = frame->pts - videoState->videoPts;
+            videoState->videoPts = frame->pts;
+            
+            printf(">>>>>>>>>>>>>>video: %.6f | DT:%.6f | fps:%.1f\n",frame->pts, deltaTime, 1.0/deltaTime);
             
             player->videoDispalyer->displayOverlay(player->videoDispalyer, frame->bitmap);
         }
@@ -857,7 +860,7 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
     
     AVFrame *frame = compositeFrame->frame;
     logBuffer(frame->extended_data[0], 0, 400, "useaudiobuffer1");
-    printf("id: %lld\n",compositeFrame->identifier);
+    //printf("id: %lld\n",compositeFrame->identifier);
     
     int64_t dec_channel_layout =
     (frame->channel_layout && av_frame_get_channels(frame) == av_get_channel_layout_nb_channels(frame->channel_layout)) ?
@@ -925,6 +928,7 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
 }
 
 int fill_audio_buffer(uint8_t *buffer, int len, void *data){
+    printf("####audioTime: %.6f\n",av_gettime_relative()/1000000.0);
     TFLivePlayer *player = data;
     TFVideoState *videoState = player->videoState;
     TFAudioDisplayer *audioDisplayer = player->audioDisplayer;
@@ -948,7 +952,8 @@ int fill_audio_buffer(uint8_t *buffer, int len, void *data){
             }else{
                 videoState->audioBufferSize = bufferSize;
                 videoState->audioClock.ptsRealTimeDiff = av_gettime_relative()/1000000.0 + playDelay - videoState->audioPts;
-                printf("ptsRealTimeDiff: %.6f\n",videoState->audioClock.ptsRealTimeDiff);
+                //printf("==============audio: %.6f | delay:%.6f | time:%.6f | diff:%.6f ( %.6f)\n",videoState->audioPts,playDelay,av_gettime_relative()/1000000.0,videoState->audioClock.ptsRealTimeDiff, videoState->audioPts - videoState->videoPts);
+                //printf("ptsRealTimeDiff: %.6f\n",videoState->audioClock.ptsRealTimeDiff);
             }
             videoState->audioBufferIndex = 0;
         }
@@ -977,7 +982,7 @@ int fill_audio_buffer(uint8_t *buffer, int len, void *data){
 
 double nextVideoTime(TFVideoState *videoState, double nextPts){
     
-    double duration = nextPts - videoState->lastPts;
+    double duration = nextPts - videoState->videoPts;
     
     if (videoState->masterClockType == TFSyncClockTypeAudio) {
         return nextVideoTimeAdjustByClock(&videoState->audioClock, nextPts);
@@ -1002,7 +1007,6 @@ void closePlayer(TFLivePlayer *player){
     videsState->audioFrameQueue.abortRequest = true;
     
     player->audioDisplayer->closeAudio(player->audioDisplayer);
-    
     
 }
 

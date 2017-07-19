@@ -65,7 +65,7 @@
     videsState->videoClock.type = TFSyncClockTypeVideo;
     videsState->audioClock.type = TFSyncClockTypeAudio;
     
-    videsState->masterClockType = TFSyncClockTypeVideo;
+    videsState->masterClockType = TFSyncClockTypeAudio;
     
     player->videoState = videsState;
     

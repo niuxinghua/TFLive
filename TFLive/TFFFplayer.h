@@ -14,9 +14,11 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
+#include <libavutil/time.h>
 //#import <Foundation/Foundation.h>
 #include "TFDisplayDefinition.h"
 #include "TFSyncClock.h"
+
 
 #define kMaxAllocPacketNodeCount       50
 #define kMaxAllocFrameNodeCount       50
@@ -131,7 +133,7 @@ typedef struct TFVideoState{
     double audioPts;
     
     double frameTimer;
-    double lastPts;
+    double videoPts;
     
     
     //sync clock

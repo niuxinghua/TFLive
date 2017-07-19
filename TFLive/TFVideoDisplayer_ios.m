@@ -7,7 +7,7 @@
 //
 
 #include "TFVideoDisplayer_ios.h"
-
+#include <libavutil/time.h>
 #if TFVIDEO_DISPLAYER_IOS_OPENGLES
 #import "TFOPGLESDisplayView.h"
 #else
