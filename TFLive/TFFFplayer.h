@@ -25,6 +25,17 @@
 
 #define SDL_AUDIO_MIN_BUFFER_SIZE 512
 
+#define logBuffer(buffer,start,length,tag)     \
+{   \
+    printf("\n***************(0x%x)%s\n",(unsigned int)buffer,tag);      \
+    uint8_t *logBuf = buffer + start;    \
+    for (int i = 0; i<length; i++) {  \
+        printf("%x",*logBuf);    \
+        logBuf ++;   \
+    }   \
+    printf("\n");       \
+}
+
 typedef struct TFFrameDecoder{
     TFSDL_thread frameReadThread;
     AVCodecContext *codexCtx;
@@ -47,10 +58,12 @@ typedef struct TFPacketQueue{
     char name[15];
     
     TFSDL_mutex *mutex;
+    //TFSDL_cond *inCond;     //packet入队不加限制
+    TFSDL_cond *outCond;
     
     bool abortRequest;
     
-    bool canInsert;
+    //bool canInsert;
     
     bool initilized;
     
@@ -86,10 +99,12 @@ typedef struct TFFrameQueue{
     char name[15];
     
     TFSDL_mutex *mutex;
+    TFSDL_cond *inCond;
+    TFSDL_cond *outCond;
     
     bool abortRequest;
     
-    bool canInsert;
+    //bool canInsert;
     
     bool initilized;
     
@@ -151,6 +166,9 @@ typedef struct TFVideoState{
 }TFVideoState;
 
 typedef struct TFLivePlayer{
+    
+    TFSDL_thread readThread;
+    TFSDL_thread displayThread;
     
     TFVideoState *videoState;
     TFVideoDisplayer *videoDispalyer;

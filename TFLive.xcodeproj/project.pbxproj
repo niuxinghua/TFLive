@@ -13,6 +13,7 @@
 		890B4F7F1F1B012900528024 /* TFOPGLProgram.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 890B4F7B1F1B012900528024 /* TFOPGLProgram.cpp */; };
 		890B4F841F1B0E3D00528024 /* frameDisplay.vs in Resources */ = {isa = PBXBuildFile; fileRef = 890B4F821F1B0E3D00528024 /* frameDisplay.vs */; };
 		890B4F851F1B0E3D00528024 /* frameDisplay.fs in Resources */ = {isa = PBXBuildFile; fileRef = 890B4F831F1B0E3D00528024 /* frameDisplay.fs */; };
+		891451CE1F288F7200308DF6 /* TFTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 89A2C64B1F26EB78004295DE /* TFTime.cpp */; };
 		899BC6CB1F0682630061F6A8 /* libavcodec.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C51F0682630061F6A8 /* libavcodec.a */; };
 		899BC6CC1F0682630061F6A8 /* libavfilter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C61F0682630061F6A8 /* libavfilter.a */; };
 		899BC6CD1F0682630061F6A8 /* libavformat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 899BC6C71F0682630061F6A8 /* libavformat.a */; };
@@ -68,6 +69,8 @@
 		899BC6C81F0682630061F6A8 /* libavutil.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libavutil.a; path = ../ffmpeg_libs/lib/libavutil.a; sourceTree = "<group>"; };
 		899BC6C91F0682630061F6A8 /* libswresample.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswresample.a; path = ../ffmpeg_libs/lib/libswresample.a; sourceTree = "<group>"; };
 		899BC6CA1F0682630061F6A8 /* libswscale.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libswscale.a; path = ../ffmpeg_libs/lib/libswscale.a; sourceTree = "<group>"; };
+		89A2C64A1F26EB78004295DE /* TFTime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFTime.h; sourceTree = "<group>"; };
+		89A2C64B1F26EB78004295DE /* TFTime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TFTime.cpp; sourceTree = "<group>"; };
 		89E1488F1F10F6EE00DEF833 /* TFSyncClock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = TFSyncClock.c; sourceTree = "<group>"; };
 		89E148901F10F6EE00DEF833 /* TFSyncClock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TFSyncClock.h; sourceTree = "<group>"; };
 		AE4F4018B0B890C1201AB34D /* libPods-TFLive.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TFLive.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -276,6 +279,8 @@
 				DFFAF7111F03472D00AB4332 /* ViewController.m */,
 				DFFAF7BE1F034A0200AB4332 /* TFMoviePlayViewController.h */,
 				DFFAF7BF1F034A0200AB4332 /* TFMoviePlayViewController.m */,
+				89A2C64A1F26EB78004295DE /* TFTime.h */,
+				89A2C64B1F26EB78004295DE /* TFTime.cpp */,
 				DFFAF7131F03472D00AB4332 /* Main.storyboard */,
 				DFFAF7161F03472D00AB4332 /* Assets.xcassets */,
 				DFFAF7181F03472D00AB4332 /* LaunchScreen.storyboard */,
@@ -418,6 +423,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				891451CE1F288F7200308DF6 /* TFTime.cpp in Sources */,
 				890B4F7D1F1B012900528024 /* TFOPGLESDisplayView.mm in Sources */,
 				DFFAF7C01F034A0200AB4332 /* TFMoviePlayViewController.m in Sources */,
 				DFFAF7121F03472D00AB4332 /* ViewController.m in Sources */,

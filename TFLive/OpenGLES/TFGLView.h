@@ -21,12 +21,9 @@
 
 @property (nonatomic, assign, readonly) CGSize bufferSize;
 
+-(BOOL)setupOpenGLContext;
+
 //must call super if override it.
 -(void)setupFrameBuffer;
-
-/**
- override by subclass
- */
--(void)startRender;
 
 @end

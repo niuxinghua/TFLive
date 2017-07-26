@@ -9,16 +9,7 @@
 #include "TFFFplayer.h"
 #include "TFAudioQueueController.h"
 
-#define logBuffer(buffer,start,length,tag)     \
-//{   \
-//    printf("\n***************(0x%x)%s\n",(unsigned int)buffer,tag);      \
-//    uint8_t *logBuf = buffer + start;    \
-//    for (int i = 0; i<length; i++) {  \
-//        printf("%x",*logBuf);    \
-//        logBuf ++;   \
-//    }   \
-//    printf("\n");       \
-//}
+
 
 
 #pragma mark - definitions
@@ -28,12 +19,12 @@ int decodeStream(TFLivePlayer *player, int streamIndex);
 
 void packetQueueInit(TFPacketQueue *pktQueue, char *name);
 void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt);
-AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished);
+AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished, bool block);
 void packetQueueDestory(TFPacketQueue *pktQueue);
 
 void frameQueueInit(TFFrameQueue *frameQueue, char *name);
 void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame, void *data);
-TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished);
+TFFrame* frameQueueGet(TFFrameQueue *frameQueue, bool *finished, bool block);
 void frameQueueDestory(TFFrameQueue *frameQueue);
 
 inline static TFFrame *TFVideoFrameFillOrAlloc(TFFrame *compositeFrame, AVFrame *originalFrame, void *data);
@@ -87,6 +78,7 @@ int findStreams(void *data){
         decodeStream(player, streamIndex[AVMEDIA_TYPE_AUDIO]);
     }
     
+    TFSDL_createThreadEx(&player->displayThread, startDisplayFrames, player, "displayThread");
     startReadPackets(videoState);
     
     return 0;
@@ -171,15 +163,10 @@ void startReadPackets(TFVideoState *videoState){
     AVPacket pkt1, *pkt = &pkt1;
     
     while (!videoState->abortRequest) {
-        
-        if (!videoState->videoPktQueue.canInsert) {
-            continue;
-        }
-        
-        //printf("%s",formatCtx == NULL ?"formatCtx is null\n": "read packet\n");
-        //printf("*************\n");
+    
         int retval = av_read_frame(formatCtx, pkt);
-        //printf("read packet ended\n");
+        
+        
         if (retval < 0) {
             if (retval == AVERROR_EOF) {
                 //printf("read frame ended");
@@ -207,8 +194,8 @@ void packetQueueInit(TFPacketQueue *pktQueue, char *name){
     
     strcpy(pktQueue->name, name);
     pktQueue->mutex = TFSDL_CreateMutex();
+    pktQueue->outCond = TFSDL_CreateCond();
     pktQueue->maxAllocCount = kMaxAllocPacketNodeCount;
-    pktQueue->canInsert = true;
     
     TFPacketNode *head = av_mallocz(sizeof(TFPacketNode));
     pktQueue->usedPacketNodeLast = head;
@@ -255,9 +242,9 @@ void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt){
         
         //printf("alloc new packet");
         
-        if (pktQueue->allocCount >= pktQueue->maxAllocCount) {
-            pktQueue->canInsert = false;
-        }
+//        if (pktQueue->allocCount >= pktQueue->maxAllocCount) {
+//            pktQueue->canInsert = false;
+//        }
     }
     
     //sorting packets by dts
@@ -298,13 +285,13 @@ void packetQueuePut(TFPacketQueue *pktQueue, AVPacket *pkt){
         printf(">>>>>>>>insert early packet: %lld ->(%lld - %lld)\n",pkt->dts, pktQueue->recyclePacketNodeLast->next->packet.dts,pktQueue->usedPacketNodeLast->packet.dts);
     }
     //printf("\ninsert packet: %d-%d\n",pktQueue->allocCount,pktQueue->recycleCount);
+    TFSDL_CondSignal(pktQueue->outCond);
     
     TFSDL_UnlockMutex(pktQueue->mutex);
     //printf("put end packet");
 }
 
-AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
-    
+AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished, bool block){
     
     if (pktQueue->abortRequest) {
         *finished = true;
@@ -313,10 +300,19 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
     
     TFSDL_LockMutex(pktQueue->mutex);
     
-    if (pktQueue->recycleCount > pktQueue->allocCount * 0.75) {
-        //printf("|");
-        TFSDL_UnlockMutex(pktQueue->mutex);
-        return NULL;
+//    if (pktQueue->recycleCount > pktQueue->allocCount * 0.75) {
+//        //printf("|");
+//        TFSDL_UnlockMutex(pktQueue->mutex);
+//        return NULL;
+//    }
+    if (pktQueue->recycleCount == pktQueue->allocCount ) {
+        
+        if (block) {
+            TFSDL_CondWait(pktQueue->outCond, pktQueue->mutex);
+        }else{
+            TFSDL_UnlockMutex(pktQueue->mutex);
+            return NULL;
+        }
     }
     
     AVPacket *firstPkt = &pktQueue->usedPacketNodeLast->packet;
@@ -325,10 +321,6 @@ AVPacket* packetQueueGet(TFPacketQueue *pktQueue, bool *finished){
     pktQueue->recycleCount ++;
     
     pktQueue->usedPacketNodeLast = pktQueue->usedPacketNodeLast->pre;
-    
-    if (!pktQueue->canInsert && pktQueue->recycleCount > pktQueue->allocCount/2) {
-        pktQueue->canInsert = true;
-    }
     
     //printf("\nmove out packet: %d-%d\n",pktQueue->allocCount,pktQueue->recycleCount);
     
@@ -359,7 +351,12 @@ void packetQueueDestory(TFPacketQueue *pktQueue){
         cur = pre;
     }
     
+    TFSDL_CondSignal(pktQueue->outCond);
+    
     TFSDL_UnlockMutex(pktQueue->mutex);
+    
+    TFSDL_DestroyCondP(&pktQueue->outCond);
+    TFSDL_DestroyMutexP(&pktQueue->mutex);
 }
 
 #pragma mark - frame queue
@@ -383,28 +380,22 @@ int videoFrameRead(void *data){
     AVPacket pkt;
     
     while (!finished && !videoState->abortRequest) {
-        if (!videoState->videoFrameQueue.canInsert) {
-            continue;
-        }
         
         int gotFrame = 0;
         while (!gotFrame && !finished) {
-            AVPacket *pktP = packetQueueGet(&videoState->videoPktQueue,&finished);
+            AVPacket *pktP = packetQueueGet(&videoState->videoPktQueue,&finished, YES);
             
-            if (pktP == NULL) {
+            if (pktP == NULL || pktP->buf == NULL) {
                 continue;
-            }
-            
-            if (pkt.size && pkt.data) {
-                av_packet_unref(&pkt);
             }
             
             pkt = *pktP;
             
             int retval = avcodec_decode_video2(codecCtx, frame, &gotFrame, &pkt);
+            av_packet_unref(&pkt);
             
         }
-        
+        printf("got Frame >>> %lld | %.6f\n",frame->pts, av_gettime_relative()/1000000.0);
         frameQueuePut(&videoState->videoFrameQueue, frame, player);
         av_frame_unref(frame);
     }
@@ -451,7 +442,7 @@ int audioFrameRead(void *data){
             
             //如果这一个packet已经没有更多frame读取，就换下一个frame
             if (!hasMoreFrame) {
-                AVPacket *pktP = packetQueueGet(&videoState->audioPktQueue, &finished);
+                AVPacket *pktP = packetQueueGet(&videoState->audioPktQueue, &finished, YES);
                 if (pktP == NULL) {
                     hasMoreFrame = false;
                     continue;
@@ -472,7 +463,7 @@ int audioFrameRead(void *data){
                 }
             }
         }
-        logBuffer(frame->extended_data[0], 0, 400, "insertaudio");
+        //logBuffer(frame->extended_data[0], 0, 400, "insertaudio");
         //printf("id: %lld\n",av_gettime_relative());
         
         frameQueuePut(&videoState->audioFrameQueue, frame, NULL);
@@ -487,8 +478,10 @@ void frameQueueInit(TFFrameQueue *frameQueue, char *name){
     
     strcpy(frameQueue->name, name);
     frameQueue->mutex = TFSDL_CreateMutex();
+    frameQueue->inCond = TFSDL_CreateCond();
+    frameQueue->outCond = TFSDL_CreateCond();
     frameQueue->maxAllocCount = kMaxAllocFrameNodeCount;
-    frameQueue->canInsert = YES;
+    //frameQueue->canInsert = YES;
     
     
     TFFrameNode *head = av_mallocz(sizeof(TFFrameNode));
@@ -521,24 +514,27 @@ void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame, void *data){
     
     if (frameQueue->recycleCount == 0) {
         
-        TFFrameNode *node = av_mallocz(sizeof(TFFrameNode));
-        node->index = frameQueue->allocCount;
+        TFSDL_CondWait(frameQueue->inCond, frameQueue->mutex);
         
-        frameQueue->recycleFrameNodeLast->next->pre = node;
-        node->next = frameQueue->recycleFrameNodeLast->next;
-        
-        node->pre = frameQueue->usedFrameNodeLast;
-        frameQueue->usedFrameNodeLast->next = node;
-        
-        frameQueue->recycleFrameNodeLast = node;
-        
-        frameQueue->allocCount ++;
-        frameQueue->recycleCount ++;
-        
-        //可以超过，但是会开始限制
-        if (frameQueue->allocCount >= frameQueue->maxAllocCount) {
-            frameQueue->canInsert = false;
-        }
+//        TFFrameNode *node = av_mallocz(sizeof(TFFrameNode));
+//        node->index = frameQueue->allocCount;
+//        
+//        frameQueue->recycleFrameNodeLast->next->pre = node;
+//        node->next = frameQueue->recycleFrameNodeLast->next;
+//        
+//        node->pre = frameQueue->usedFrameNodeLast;
+//        frameQueue->usedFrameNodeLast->next = node;
+//        
+//        frameQueue->recycleFrameNodeLast = node;
+//        
+//        frameQueue->allocCount ++;
+//        frameQueue->recycleCount ++;
+//        
+//        //可以超过，但是会开始限制
+//        if (frameQueue->allocCount >= frameQueue->maxAllocCount) {
+//            //frameQueue->canInsert = false;
+//            TFSDL_CondWait(frameQueue->inCond, frameQueue->mutex);
+//        }
         
         //printf("alloc new frame");
     }
@@ -599,21 +595,32 @@ void frameQueuePut(TFFrameQueue *frameQueue, AVFrame *frame, void *data){
         
     }
     
+    TFSDL_CondSignal(frameQueue->outCond);
+    
     TFSDL_UnlockMutex(frameQueue->mutex);
 }
 
-TFFrame *frameQueueGet(TFFrameQueue *frameQueue, bool *finished){
+TFFrame *frameQueueGet(TFFrameQueue *frameQueue, bool *finished, bool block){
     
+    TFSDL_LockMutex(frameQueue->mutex);
     if (frameQueue->abortRequest) {
         *finished = true;
+        TFSDL_UnlockMutex(frameQueue->mutex);
         return NULL;
     }
     if (frameQueue->allocCount == 0 || frameQueue->recycleCount == frameQueue->allocCount) {
-        *finished = false;
-        return NULL;
+        if (block) {
+            TFSDL_CondWait(frameQueue->outCond, frameQueue->mutex);
+        }else{
+            *finished = false;
+            TFSDL_UnlockMutex(frameQueue->mutex);
+            return NULL;
+        }
     }
     
     TFFrame *firstFrame = frameQueue->usedFrameNodeLast->frame;
+    
+    TFSDL_UnlockMutex(frameQueue->mutex);
     
     return firstFrame;
 }
@@ -648,9 +655,7 @@ void frameQueueUseOne(TFFrameQueue *frameQueue, bool *finished){
     
     frameQueue->usedFrameNodeLast = frameQueue->usedFrameNodeLast->pre;
     
-    if (!frameQueue->canInsert && frameQueue->recycleCount > frameQueue->allocCount/2) {
-        frameQueue->canInsert = true;
-    }
+    TFSDL_CondSignal(frameQueue->inCond);
     
     TFSDL_UnlockMutex(frameQueue->mutex);
 }
@@ -729,7 +734,7 @@ inline static TFFrame *TFAudioFrameConvert(TFFrame *compositeFrame, AVFrame *ori
 #if DEBUG
     compositeFrame->identifier = av_gettime_relative();
 #endif
-    logBuffer(compositeFrame->frame->extended_data[0], 0, 400, "convert");
+    //logBuffer(compositeFrame->frame->extended_data[0], 0, 400, "convert");
     //printf("id: %lld\n",compositeFrame->identifier);
     
     return compositeFrame;
@@ -753,29 +758,27 @@ int startDisplayFrames(void *data){
     videoState->frameTimer = av_gettime_relative() / 1000000.0;
     
     bool finished = false;
+    
     while (!finished) {
         
-        TFFrame *frame = frameQueueGet(&videoState->videoFrameQueue, &finished);
-        printf("framQueueCount: %d\n",videoState->videoFrameQueue.allocCount - videoState->videoFrameQueue.recycleCount);
+        TFFrame *frame = frameQueueGet(&videoState->videoFrameQueue, &finished, true);
         if (frame == NULL) {
             continue;
         }
         
         double remainTime = nextVideoTime(videoState, frame->pts) - av_gettime_relative() / 1000000.0;
-        //printf("pts:%.6f remain:%.6f | time:%.6f | diff:%.6f\n",frame->pts,remainTime,av_gettime_relative() / 1000000.0, videoState->audioClock.ptsRealTimeDiff);
         
         if (frame->pts < curPts) {
             printf("find early frame\n");
         }
         curPts = frame->pts;
         
-        //printf("\nframeTimer:%.6f \ncurrentTime:%.6f \nraminTime: %.6f\ndelay: %.6f\n*********\n",videoState->frameTimer,time,remainTime,delay);
         if (remainTime > 0) {
-            //printf("continue frame: %.6f",frame->frame->pts/1000000.0);
+            printf("sleep: %.6f",remainTime);
             av_usleep(remainTime * 1000000);
             continue;
         }else if (remainTime < -maxFrameDuration){
-            printf("错过frame: %.6f\n",frame->frame->pts/1000000.0);
+            printf("错过frame: %.6f(%lld | %.6f)\n",remainTime,frame->frame->pts, av_gettime_relative()/1000000.0);
             frameQueueUseOne(&videoState->videoFrameQueue, &finished);
             continue;
         }
@@ -784,14 +787,11 @@ int startDisplayFrames(void *data){
         
         if (player->videoDispalyer->displayOverlay) {
             videoState->frameTimer = av_gettime_relative() / 1000000.0;
-            double deltaTime = frame->pts - videoState->videoPts;
             videoState->videoPts = frame->pts;
-            
-            printf(">>>>>>>>>>>>>>video: %.6f | DT:%.6f | fps:%.1f\n",frame->pts, deltaTime, 1.0/deltaTime);
-            
+            printf("videoDispalyer\n");
             player->videoDispalyer->displayOverlay(player->videoDispalyer, frame->bitmap);
         }
-        
+    
     }
     
     return 0;
@@ -852,14 +852,14 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
     
     TFFrame *compositeFrame = NULL;
     while (compositeFrame == NULL) {
-        compositeFrame = frameQueueGet(&videoState->audioFrameQueue, &finished);
+        compositeFrame = frameQueueGet(&videoState->audioFrameQueue, &finished, true);
         if (finished) {
             return -1;
         }
     }
     
     AVFrame *frame = compositeFrame->frame;
-    logBuffer(frame->extended_data[0], 0, 400, "useaudiobuffer1");
+    //logBuffer(frame->extended_data[0], 0, 400, "useaudiobuffer1");
     //printf("id: %lld\n",compositeFrame->identifier);
     
     int64_t dec_channel_layout =
@@ -928,7 +928,9 @@ int obtainOneAudioBuffer(TFVideoState *videoState){
 }
 
 int fill_audio_buffer(uint8_t *buffer, int len, void *data){
-    printf("####audioTime: %.6f\n",av_gettime_relative()/1000000.0);
+    
+    printf("fill_audio_buffer %.6f\n",av_gettime_relative()/1000000.0);
+    
     TFLivePlayer *player = data;
     TFVideoState *videoState = player->videoState;
     TFAudioDisplayer *audioDisplayer = player->audioDisplayer;
@@ -951,9 +953,10 @@ int fill_audio_buffer(uint8_t *buffer, int len, void *data){
                 
             }else{
                 videoState->audioBufferSize = bufferSize;
+                if (videoState->audioClock.ptsRealTimeDiff <= 0) {
+                    printf("ptsRealTimeDiff initialize! | %.6f\n",av_gettime_relative()/1000000.0);
+                }
                 videoState->audioClock.ptsRealTimeDiff = av_gettime_relative()/1000000.0 + playDelay - videoState->audioPts;
-                //printf("==============audio: %.6f | delay:%.6f | time:%.6f | diff:%.6f ( %.6f)\n",videoState->audioPts,playDelay,av_gettime_relative()/1000000.0,videoState->audioClock.ptsRealTimeDiff, videoState->audioPts - videoState->videoPts);
-                //printf("ptsRealTimeDiff: %.6f\n",videoState->audioClock.ptsRealTimeDiff);
             }
             videoState->audioBufferIndex = 0;
         }
@@ -985,7 +988,10 @@ double nextVideoTime(TFVideoState *videoState, double nextPts){
     double duration = nextPts - videoState->videoPts;
     
     if (videoState->masterClockType == TFSyncClockTypeAudio) {
-        return nextVideoTimeAdjustByClock(&videoState->audioClock, nextPts);
+        double nextTime = nextVideoTimeAdjustByClock(&videoState->audioClock, nextPts);
+        if (nextTime > 0) {
+            return nextTime;
+        }
     }
     
     return videoState->frameTimer + duration;

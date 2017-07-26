@@ -9,16 +9,17 @@
 #import "TFOPGLESDisplayView.h"
 #import <OpenGLES/ES3/gl.h>
 #import "TFOPGLProgram.hpp"
+#include "TFTime.h"
 
 #pragma mark - shaders
 
 const GLchar *TFVideoDisplay_common_vs ="               \n\
 #version 300 es                                         \n\
                                                         \n\
-layout (location = 0) in mediump vec3 position;         \n\
-layout (location = 1) in mediump vec2 inTexcoord;       \n\
+layout (location = 0) in highp vec3 position;           \n\
+layout (location = 1) in highp vec2 inTexcoord;         \n\
                                                         \n\
-out mediump vec2 texcoord;                              \n\
+out highp vec2 texcoord;                                \n\
                                                         \n\
 void main()                                             \n\
 {                                                       \n\
@@ -29,13 +30,13 @@ texcoord = inTexcoord;                                  \n\
 
 const GLchar *TFVideoDisplay_yuv420_fs ="               \n\
 #version 300 es                                         \n\
-precision mediump float;                                \n\
+precision highp float;                                  \n\
                                                         \n\
 in vec2 texcoord;                                       \n\
 out vec4 FragColor;                                     \n\
-uniform sampler2D yPlaneTex;                            \n\
-uniform sampler2D uPlaneTex;                            \n\
-uniform sampler2D vPlaneTex;                            \n\
+uniform lowp sampler2D yPlaneTex;                       \n\
+uniform lowp sampler2D uPlaneTex;                       \n\
+uniform lowp sampler2D vPlaneTex;                       \n\
                                                         \n\
 void main()                                             \n\
 {                                                       \n\
@@ -63,6 +64,8 @@ void main()                                             \n\
     TFOPGLProgram *_frameProgram;
     GLuint VAO;
     GLuint textures[TFMAX_TEXTURE_COUNT];
+    
+    BOOL _renderConfiged;
 }
 
 @end
@@ -77,17 +80,16 @@ void main()                                             \n\
     //[self rendering];
 }
 
--(void)startRender{
+-(BOOL)configRenderData{
+    if (_renderConfiged) {
+        return true;
+    }
     
     GLfloat vertices[] = {
-        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
-        1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 0.0f, 0.0f
-    };
-    GLuint indices[] = {
-        0, 1, 2,
-        0, 3, 2
+        -1.0f, 1.0f, 0.0f, 0.0f, 0.0f,  //left top
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, //left bottom
+        1.0f, 1.0f, 0.0f, 1.0f, 0.0f,   //right top
+        1.0f, -1.0f, 0.0f, 1.0f, 1.0f,  //right bottom
     };
     
 //    NSString *vertexPath = [[NSBundle mainBundle] pathForResource:@"frameDisplay" ofType:@"vs"];
@@ -109,11 +111,6 @@ void main()                                             \n\
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GL_FLOAT), (void*)(3*(sizeof(GL_FLOAT))));
     glEnableVertexAttribArray(1);
     
-    GLuint EBO;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     
@@ -127,9 +124,15 @@ void main()                                             \n\
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     }
+    _renderConfiged = YES;
+    
+    return YES;
 }
 
 -(void)renderImageBuffer:(TFImageBuffer *)imageBuf{
+    
+    [self configRenderData];
+    
     float width = imageBuf->width;
     float height = imageBuf->height;
     
@@ -153,7 +156,18 @@ void main()                                             \n\
     [self rendering];
 }
 
--(void)displayOverlay:(TFOverlay *)overlay{    
+-(void)displayOverlay:(TFOverlay *)overlay{
+    
+    if (!self.context) {
+        [self setupOpenGLContext];
+    }
+    EAGLContext *preContex = [EAGLContext currentContext];
+    [EAGLContext setCurrentContext:self.context];
+    
+    if (!_renderConfiged) {
+        [self configRenderData];
+    }
+    
     float width = overlay->width;
     float height = overlay->height;
     
@@ -182,6 +196,8 @@ void main()                                             \n\
     glGenerateMipmap(GL_TEXTURE_2D);
     
     [self rendering];
+    
+    [EAGLContext setCurrentContext:preContex];
 }
 
 -(void)rendering{
@@ -196,7 +212,9 @@ void main()                                             \n\
     _frameProgram->setTexture("vPlaneTex", GL_TEXTURE_2D, textures[2], 2);
     
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    
     
     glBindRenderbuffer(GL_RENDERBUFFER, self.colorBuffer);
     [self.context presentRenderbuffer:GL_RENDERBUFFER];

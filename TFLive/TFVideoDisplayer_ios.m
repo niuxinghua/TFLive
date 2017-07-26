@@ -13,6 +13,7 @@
 #else
 #import "TFImageDisplayView.h"
 #endif
+#import "TFTime.h"
 
 int fillVideoFrameFunc(TFOverlay *overlay, const AVFrame *frame){
     overlay->width = frame->width;
@@ -37,9 +38,14 @@ TFOverlay *voutOverlayCreate(){
     return overlay;
 }
 
+double lastTime = 0;
 int displayOverlay(TFVideoDisplayer *displayer, TFOverlay *overlay){
     
-    dispatch_async(dispatch_get_main_queue(), ^{
+//    double curTime = machTimeToSecs(mach_absolute_time());
+//    printf("delta: %.1f\n",1/(curTime - lastTime));
+//    lastTime = curTime;
+    
+    
 #if TFVIDEO_DISPLAYER_IOS_OPENGLES
         TFOPGLESDisplayView *displayView = (__bridge TFOPGLESDisplayView *)(displayer->displayView);
         [displayView displayOverlay:overlay];
@@ -47,10 +53,8 @@ int displayOverlay(TFVideoDisplayer *displayer, TFOverlay *overlay){
         TFImageDisplayView *dispalyView = (__bridge TFImageDisplayView *)(displayer->displayView);
         [dispalyView displayOverlay:overlay];
 #endif
-        
         av_free(overlay);
-    });
-    
+            
     return 0;
 }
 

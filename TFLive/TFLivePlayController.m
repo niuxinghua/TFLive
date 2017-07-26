@@ -26,9 +26,6 @@
     
     TFLivePlayer *player;
     
-    TFSDL_thread readThread;
-    TFSDL_thread displayThread;
-    
 #if TFVIDEO_DISPLAYER_IOS_OPENGLES
     TFOPGLESDisplayView *_playView;
 #else
@@ -104,15 +101,14 @@
 }
 
 -(void)streamOpen{
-    TFSDL_createThreadEx(&readThread, findStreams, player, "findStreams");
-    TFSDL_createThreadEx(&displayThread, startDisplayFrames, player, "displayThread");
+    TFSDL_createThreadEx(&player->readThread, findStreams, player, "findStreams");
 }
 
 -(void)dealloc{
     TFVideoState *videsState = player->videoState;
     
-    pthread_cancel(readThread.thread_id);
-    pthread_cancel(displayThread.thread_id);
+    pthread_cancel(player->readThread.thread_id);
+    pthread_cancel(player->displayThread.thread_id);
     
     pthread_cancel(videsState->videoFrameDecoder->frameReadThread.thread_id);
 

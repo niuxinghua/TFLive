@@ -18,41 +18,29 @@
     return [CAEAGLLayer class];
 }
 
--(instancetype)initWithFrame:(CGRect)frame{
-    if (self = [super initWithFrame:frame]) {
-        if (![self commonInit]) {
-            return nil;
-        }
-    }
-    
-    return self;
-}
-
--(instancetype)initWithCoder:(NSCoder *)aDecoder{
-    if (self = [super initWithCoder:aDecoder]) {
-        if (![self commonInit]) {
-            return nil;
-        }
-    }
-    
-    return self;
-}
-
--(BOOL)commonInit{
+-(BOOL)setupOpenGLContext{
     _renderLayer = (CAEAGLLayer *)self.layer;
+    _renderLayer.opaque = YES;
     _renderLayer.contentsScale = [UIScreen mainScreen].scale;
+    _renderLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
+                                       [NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking,
+                                       kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat,
+                                       nil];
     
     _context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    //_context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     if (!_context) {
         NSLog(@"alloc EAGLContext failed!");
         return false;
     }
+    EAGLContext *preContex = [EAGLContext currentContext];
     if (![EAGLContext setCurrentContext:_context]) {
         NSLog(@"set current EAGLContext failed!");
         return false;
     }
     [self setupFrameBuffer];
-    [self startRender];
+    
+    [EAGLContext setCurrentContext:preContex];
     
     return true;
 }
@@ -86,10 +74,6 @@
     if(status != GL_FRAMEBUFFER_COMPLETE) {
         NSLog(@"failed to make complete framebuffer object %x", status);
     }
-}
-
--(void)startRender{
-    
 }
 
 @end

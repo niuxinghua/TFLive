@@ -31,6 +31,7 @@
 
 uint8_t *rgbbuf;
 -(void)displayOverlay:(TFOverlay *)overlay{
+    
     if(!overlay || !overlay->pixels[0] || !overlay->pixels[1]){
         return ;
     }

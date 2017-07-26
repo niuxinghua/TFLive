@@ -94,4 +94,68 @@ int TFSDL_LockMutex(TFSDL_mutex *mutex)
 }
 
 
+/***** condition *****/
+
+TFSDL_cond *TFSDL_CreateCond(void)
+{
+    TFSDL_cond *cond;
+    cond = (TFSDL_cond *) mallocz(sizeof(TFSDL_cond));
+    if (!cond)
+        return NULL;
+    
+    if (pthread_cond_init(&cond->id, NULL) != 0) {
+        free(cond);
+        return NULL;
+    }
+    
+    return cond;
+}
+
+void TFSDL_DestroyCond(TFSDL_cond *cond)
+{
+    if (cond) {
+        pthread_cond_destroy(&cond->id);
+        free(cond);
+    }
+}
+
+void TFSDL_DestroyCondP(TFSDL_cond **cond)
+{
+    
+    if (cond) {
+        TFSDL_DestroyCond(*cond);
+        *cond = NULL;
+    }
+}
+
+int TFSDL_CondSignal(TFSDL_cond *cond)
+{
+    assert(cond);
+    if (!cond)
+        return -1;
+    
+    return pthread_cond_signal(&cond->id);
+}
+
+int TFSDL_CondBroadcast(TFSDL_cond *cond)
+{
+    assert(cond);
+    if (!cond)
+        return -1;
+    
+    return pthread_cond_broadcast(&cond->id);
+}
+
+int TFSDL_CondWait(TFSDL_cond *cond, TFSDL_mutex *mutex)
+{
+    assert(cond);
+    assert(mutex);
+    if (!cond || !mutex)
+        return -1;
+    
+    return pthread_cond_wait(&cond->id, &mutex->id);
+}
+
+
+
 
