@@ -45,7 +45,6 @@ int displayOverlay(TFVideoDisplayer *displayer, TFOverlay *overlay){
 //    printf("delta: %.1f\n",1/(curTime - lastTime));
 //    lastTime = curTime;
     
-    
 #if TFVIDEO_DISPLAYER_IOS_OPENGLES
         TFOPGLESDisplayView *displayView = (__bridge TFOPGLESDisplayView *)(displayer->displayView);
         [displayView displayOverlay:overlay];

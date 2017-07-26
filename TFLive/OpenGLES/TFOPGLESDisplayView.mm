@@ -11,6 +11,8 @@
 #import "TFOPGLProgram.hpp"
 #include "TFTime.h"
 
+#define TFReallocRenderIfLayerSizeChanged   1
+
 #pragma mark - shaders
 
 const GLchar *TFVideoDisplay_common_vs ="               \n\
@@ -63,9 +65,12 @@ void main()                                             \n\
     
     TFOPGLProgram *_frameProgram;
     GLuint VAO;
+    GLuint VBO;
     GLuint textures[TFMAX_TEXTURE_COUNT];
     
     BOOL _renderConfiged;
+    
+    BOOL _needReallocRenderBuffer;
 }
 
 @end
@@ -77,7 +82,14 @@ void main()                                             \n\
 -(void)layoutSubviews{
     [super layoutSubviews];
     
-    //[self rendering];
+    //If context has setuped and layer's size has changed, realloc renderBuffer.
+    if (self.context && !CGSizeEqualToSize(self.layer.frame.size, self.bufferSize)) {
+#if TFReallocRenderIfLayerSizeChanged
+        _needReallocRenderBuffer = YES;
+#else
+        //self.layer.contentsScale = [UIScreen mainScreen].scale * ()
+#endif
+    }
 }
 
 -(BOOL)configRenderData{
@@ -100,7 +112,6 @@ void main()                                             \n\
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
     
-    GLuint VBO;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
@@ -158,11 +169,21 @@ void main()                                             \n\
 
 -(void)displayOverlay:(TFOverlay *)overlay{
     
+    if (self.appIsUnactive) {
+        return;
+    }
+    
     if (!self.context) {
         [self setupOpenGLContext];
     }
     EAGLContext *preContex = [EAGLContext currentContext];
     [EAGLContext setCurrentContext:self.context];
+    
+    if (_needReallocRenderBuffer) {
+        [self reallocRenderBuffer];
+        
+        _needReallocRenderBuffer = NO;
+    }
     
     if (!_renderConfiged) {
         [self configRenderData];
@@ -179,7 +200,6 @@ void main()                                             \n\
         viewPort.width = width / height * self.bufferSize.height;
         viewPort.height = self.bufferSize.height;
     }
-    
     glViewport(0, 0, viewPort.width, viewPort.height);
     
     //yuv420p has 3 planes: y u v. U plane and v plane have half width and height of y plane.
@@ -202,6 +222,8 @@ void main()                                             \n\
 
 -(void)rendering{
     
+
+    
     glBindFramebuffer(GL_FRAMEBUFFER, self.frameBuffer);
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     
@@ -218,6 +240,16 @@ void main()                                             \n\
     
     glBindRenderbuffer(GL_RENDERBUFFER, self.colorBuffer);
     [self.context presentRenderbuffer:GL_RENDERBUFFER];
+}
+
+-(void)dealloc{
+    
+    if (_renderConfiged) {
+        glDeleteVertexArrays(1, &VAO);
+        glDeleteBuffers(1, &VBO);
+        
+        glDeleteTextures(TFMAX_TEXTURE_COUNT, textures);
+    }
 }
 
 @end

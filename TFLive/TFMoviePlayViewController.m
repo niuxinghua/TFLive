@@ -12,6 +12,8 @@
 
 @interface TFMoviePlayViewController (){
     TFLivePlayController *_livePlayer;
+    
+    UISlider *_frameSlider;
 }
 
 @end
@@ -20,7 +22,6 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
     
     self.view.backgroundColor = [UIColor whiteColor];
     NSURL *liveURL = [NSURL URLWithString:_liveAddr];
@@ -32,34 +33,15 @@
     _livePlayer.playView.frame = self.view.bounds;
     [self.view addSubview:_livePlayer.playView];
     
-    
-    {
-        TFOPGLESDisplayView *renderView = (TFOPGLESDisplayView *)_livePlayer.playView;
-        
-        UIImage *image = [UIImage imageNamed:@"github"];
-        CGImageRef imageRef = [image CGImage];
-        NSUInteger width = CGImageGetWidth(imageRef);
-        NSUInteger height = CGImageGetHeight(imageRef);
-        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        unsigned char *rawData = malloc(height * width * 4);
-        NSUInteger bytesPerPixel = 4;
-        NSUInteger bytesPerRow = bytesPerPixel * width;
-        NSUInteger bitsPerComponent = 8;
-        CGContextRef context = CGBitmapContextCreate(rawData, width, height, bitsPerComponent, bytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-        CGColorSpaceRelease(colorSpace);
-        
-        CGContextDrawImage(context, CGRectMake(0, 0, width, height), imageRef);
-        CGContextRelease(context);
-        
-        
-        TFImageBuffer imageBuf;
-        imageBuf.width = [image size].width;
-        imageBuf.height = [image size].height;
-        imageBuf.pixels[0] = rawData;
-        
-        
-        //[renderView renderImageBuffer:&imageBuf];
-    }
+    _frameSlider = [[UISlider alloc] initWithFrame:CGRectMake(30, 80, [UIScreen mainScreen].bounds.size.width - 60, 20)];
+    [_frameSlider addTarget:self action:@selector(adjustFrame:) forControlEvents:(UIControlEventValueChanged)];
+    _frameSlider.value = 1.0;
+    [self.view addSubview:_frameSlider];
+}
+
+-(void)adjustFrame:(UISlider *)slider{
+    //_livePlayer.playView.transform = CGAffineTransformMakeScale(slider.value, slider.value);
+    _livePlayer.playView.frame = CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width * slider.value, [UIScreen mainScreen].bounds.size.height * slider.value);
 }
 
 -(void)dealloc{

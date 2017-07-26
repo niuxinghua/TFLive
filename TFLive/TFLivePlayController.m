@@ -110,8 +110,9 @@
     pthread_cancel(player->readThread.thread_id);
     pthread_cancel(player->displayThread.thread_id);
     
-    pthread_cancel(videsState->videoFrameDecoder->frameReadThread.thread_id);
-
+    if (videsState->videoFrameDecoder) {
+        pthread_cancel(videsState->videoFrameDecoder->frameReadThread.thread_id);
+    }
 }
 
 @end
